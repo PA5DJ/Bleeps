@@ -40,7 +40,8 @@ Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe 
 - `SettingsForm.cs` - Station (call), Audio (in/uit), Radio (Hamlib-lijst, poort of host:port, seriele lijnen, CI-V, PTT
   VOX/CAT/RTS/DTR + eigen PTT-poort, mode, TX delay/tail, poll), Frequencies (raster zoals WSJT-X: Insert/Delete/Reset).
 - `Audio.cs` - WinMM in/uit + `TxPlayer` (PTT altijd los in de finally), zonder de LAN-audio van ShackAssistant.
-- `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`), `Log.cs` (`Documenten\Bleeps\debug\Bleeps.log`), `Program.cs`.
+- `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`; sinds v1.0.3 staat hij `Program.SplashMs` (3 s) ALLEEN in beeld en verschijnt
+  het hoofdvenster pas daarna - eerst opende dat er meteen overheen en leek de splash direct te sluiten), `Log.cs` (`Documenten\Bleeps\debug\Bleeps.log`), `Program.cs`.
 - Instellingen: `%APPDATA%\Bleeps\bleeps.ini`.
 
 ## Bouwen

@@ -1,5 +1,9 @@
 # Bleeps Changelog
 
+## v1.0.3
+
+- De splash blijft 3 s alleen in beeld; het hoofdvenster verschijnt pas daarna (PA5DJ: hij verdween meteen - het hoofdvenster opende eroverheen).
+
 ## v1.0.2
 
 - Waterval-bediening zoals de Wide Graph van WSJT-X (PA5DJ): Bins/Pixel (standaard 4 = 2,9 Hz/px), Start (Hz), N Avg (de snelheid: spectra per regel, 5 = een regel per 0,4 s), Gain (contrast) en Zero (helderheid); bereik en Hz/px ernaast, alles bewaard in `[waterfall]`.

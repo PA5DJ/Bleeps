@@ -6,8 +6,6 @@ namespace Bleeps;
 /// must stay reachable - the lesson of ShackAssistant's splash).</summary>
 internal sealed class SplashForm : Form
 {
-    private readonly DateTime _shown = DateTime.UtcNow;
-
     public SplashForm()
     {
         FormBorderStyle = FormBorderStyle.None;
@@ -30,15 +28,5 @@ internal sealed class SplashForm : Form
         Controls.Add(pic);
         Controls.Add(line);
         UITheme.Apply(this);
-    }
-
-    /// <summary>Close once it has been up for at least <paramref name="minMs"/>.</summary>
-    public void CloseAfter(int minMs)
-    {
-        int left = minMs - (int)(DateTime.UtcNow - _shown).TotalMilliseconds;
-        if (left <= 0) { Close(); return; }
-        var t = new System.Windows.Forms.Timer { Interval = left };
-        t.Tick += (_, _) => { t.Stop(); t.Dispose(); Close(); };
-        t.Start();
     }
 }
