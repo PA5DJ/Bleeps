@@ -155,7 +155,7 @@ public sealed class WaterfallPanel : Panel
 
     /// <summary>
     /// The TX tone when it is split off the RX tone (CW-AFSK, v1.0.407-408): the RED line, with a triangle on the
-    /// edge; the RX cursor is then drawn green (PA5DJ: "TX moet de rode lijn zijn. niet rx"). 0 hides it.
+    /// edge; the RX cursor is then drawn green (PA5DJ: "TX must be the red line, not RX"). 0 hides it.
     /// </summary>
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -168,7 +168,7 @@ public sealed class WaterfallPanel : Panel
     private double _txMarkHz;
 
     /// <summary>
-    /// Fixed lines with a label, for a mode that lives at known tones (v1.0.612, SSTV; PA5DJ: "ik mis sync markers over het
+    /// Fixed lines with a label, for a mode that lives at known tones (v1.0.612, SSTV; PA5DJ: "I miss sync markers across the
     /// audio spectrum"): sync 1200, black 1500, VIS leader 1900, white 2300. Null = none.
     /// </summary>
     [System.ComponentModel.Browsable(false)]
@@ -181,7 +181,7 @@ public sealed class WaterfallPanel : Panel
     private IReadOnlyList<(double Hz, Color Colour, string Label)>? _markers;
 
     /// <summary>
-    /// Frequency STRIPS (v1.0.725, PA5DJ: "geef TX marker ook de breedte mee van het TX signaal"): a see-through band with
+    /// Frequency STRIPS (v1.0.725, PA5DJ: "give the TX marker the width of the TX signal too"): a see-through band with
     /// thin edges from LoHz to HiHz, under the <see cref="Markers"/>. Bleeps: where our signal will be. Null = none.
     /// </summary>
     [System.ComponentModel.Browsable(false)]
@@ -204,7 +204,7 @@ public sealed class WaterfallPanel : Panel
     private bool _showCursor = true;
 
     /// <summary>
-    /// TX split off RX (v1.0.408; the buttons swapped in v1.0.410, PA5DJ: "rechtermuis klik moet TX zijn en links
+    /// TX split off RX (v1.0.408; the buttons swapped in v1.0.410, PA5DJ: "right mouse click must be TX and left
     /// RX"): a RIGHT click or drag moves only the TX tone (<see cref="TxMarkHz"/>, reported by
     /// <see cref="TxCommitted"/>), a LEFT click tunes the RX cursor as it always did. The wheel, standing,
     /// fine-tunes RX.
@@ -353,13 +353,13 @@ public sealed class WaterfallPanel : Panel
             double hz  = MinHz + SpanHz * x / w;
             int    bin = (int)Math.Round(hz / hzPerBin);
             float  v   = (bin >= 0 && bin < db.Length) ? db[bin] : FloorDb;
-            // DEZELFDE kromme als liggend (PD5DJ, v1.0.183). Het was een lineaire helling van vloer tot
-            // plafond, en daarmee deden Background en Curve staand niets - gemeten 0 van 84000 pixels
-            // verschil bij elke stand van die twee. Nu is er EEN beschrijving van de kleuren, en de drie
-            // knoppen eronder - Noise, Background, Curve - gelden in beide standen en in alle modes.
+            // The SAME curve as horizontal (PD5DJ, v1.0.183). It used to be a linear ramp from floor to
+            // ceiling, and with that Background and Curve did nothing when vertical - measured 0 of 84000 pixels
+            // different at every setting of those two. Now there is ONE description of the colours, and the three
+            // knobs below it - Noise, Background, Curve - apply in both orientations and in every mode.
             //
-            // CeilingDb wordt hierdoor door de waterval niet meer gelezen; hij voedt nog wel de strook
-            // van de skimmer, die zijn eigen lineaire Heat-ramp heeft.
+            // Because of this the waterfall no longer reads CeilingDb; it still feeds the skimmer's
+            // strip, which has its own linear Heat ramp.
             _pixels[x] = Skim(v);
         }
         Invalidate();
@@ -527,16 +527,16 @@ public sealed class WaterfallPanel : Panel
     public float Background { get; set; } = 0.08f;
 
     /// <summary>
-    /// Gradient stops per palette, 0..1. De eerste stop voorbij 0 zit op 0.08: daaronder is de donkere
-    /// grond waar de ruis in spikkelt, daarboven het signaal. Dat is dezelfde 0.08 als de standaardstand
-    /// van <see cref="Background"/>, en dat is geen toeval - die twee horen bij elkaar.
+    /// Gradient stops per palette, 0..1. The first stop past 0 sits at 0.08: below it is the dark
+    /// ground where the noise speckles, above it the signal. That is the same 0.08 as the default
+    /// of <see cref="Background"/>, and that is no coincidence - the two belong together.
     ///
     /// <para>
-    /// Die stop zat eerst alleen in de paletten die voor de LIGGENDE waterval gemaakt zijn, want alleen
-    /// die ging door <see cref="Skim"/>; staand liep een lineaire helling. Sinds v1.0.183 gaan ze
-    /// allebei door Skim, en dus heeft Classic hem ook nodig: zonder die stop landt de grond op een
-    /// kwart van de weg naar blauw en wordt een lege band een BLAUWE MUUR - precies wat v2.7.118 met de
-    /// kleurbodem heeft weggewerkt. Gevonden door het beeld te RENDEREN; alle getallen stonden groen.
+    /// That stop used to be only in the palettes made for the HORIZONTAL waterfall, because only
+    /// that one went through <see cref="Skim"/>; vertical ran a linear ramp. Since v1.0.183 both
+    /// go through Skim, so Classic needs it too: without that stop the ground lands a quarter of
+    /// the way to blue and an empty band becomes a BLUE WALL - exactly what v2.7.118 got rid of with
+    /// the colour floor. Found by RENDERING the picture; all the numbers were green.
     /// </para>
     /// </summary>
     private static (double t, Color c)[] Stops(string name) => name switch

@@ -90,8 +90,8 @@ internal sealed class SettingsForm : Form
         return t;
     }
 
-    // the label of each row, so it goes grey WITH its control (v1.0.7, PA5DJ: "items die niet van toepassing bij een select
-    // zoals CAT, grijs maken" - a grey box beside a black label did not show)
+    // the label of each row, so it goes grey WITH its control (v1.0.7, PA5DJ: "grey out items that do not apply to a choice
+    // such as CAT" - a grey box beside a black label did not show)
     private readonly Dictionary<Control, Label> _labels = new();
 
     private void Row(TableLayoutPanel t, string label, Control c, string tip)

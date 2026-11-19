@@ -3,9 +3,9 @@ using ShackAssistant.Helpers;
 namespace ShackAssistant.Forms;
 
 /// <summary>
-/// Bleeps Settings (PLAN-BLEEPS §6): where Hz and dB stand in a chat line and how they look (PA5DJ: "hz en db via mouse
-/// over, of instelbaar in settings. waar en hoe je het plaatst"), colours or mono ("elke station een eigen kleur
-/// (instelbaar of mono)"), and the decoder threads ("zoals wsjtx" - Auto = cores - 1). A TableLayoutPanel, nothing placed by
+/// Bleeps Settings (PLAN-BLEEPS §6): where Hz and dB stand in a chat line and how they look (PA5DJ: "Hz and dB on mouse
+/// over, or adjustable in settings. where and how you place it"), colours or mono ("every station its own colour
+/// (adjustable or mono)"), and the decoder threads ("like WSJT-X" - Auto = cores - 1). A TableLayoutPanel, nothing placed by
 /// hand. The wiring (PTT, lead, tail) is in the rig profile, not here.
 /// </summary>
 internal sealed class BleepsSettingsForm : Form

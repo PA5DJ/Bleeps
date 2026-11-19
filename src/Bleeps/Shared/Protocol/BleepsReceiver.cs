@@ -754,8 +754,8 @@ public sealed class BleepsReceiver : IAudioHistory
     public double? FreeSpot(double lo = 400, double hi = 2500, BleepsSpeed? sp = null) => Spot(lo, hi, sp, null);
 
     /// <summary>
-    /// Auto free spot (PA5DJ, 16 November 2026: "zodra je op send klikt kiest programma snel een lege frequentie, en gaat dan
-    /// zenden"): the place to send at now. The CURRENT place stays as long as it is still free - nobody being read there
+    /// Auto free spot (PA5DJ, 16 November 2026: "as soon as you click Send the program quickly picks an empty frequency, and then
+    /// transmits"): the place to send at now. The CURRENT place stays as long as it is still free - nobody being read there
     /// and hardly busier than the quietest place - so a chat partner does not have to look for you at every message.
     /// Otherwise the quietest place. Null while too little has been heard (then the current place is used).
     /// </summary>

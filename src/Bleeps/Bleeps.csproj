@@ -9,16 +9,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Bleeps</AssemblyName>
     <RootNamespace>Bleeps</RootNamespace>
-    <AssemblyVersion>1.0.9.0</AssemblyVersion>
-    <FileVersion>1.0.9.0</FileVersion>
+    <AssemblyVersion>1.0.10.0</AssemblyVersion>
+    <FileVersion>1.0.10.0</FileVersion>
     <Company>PA5DJ</Company>
     <Product>Bleeps</Product>
     <Copyright>PA5DJ</Copyright>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>Bleeps.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Everything this program needs is in this repository (v1.0.9, PA5DJ: "een zelf opzich staand project los van
-         shackassistant"): the shared code that used to be linked from ShackAssistant is in Shared\ (a copy of its own), the
+    <!-- Everything this program needs is in this repository (v1.0.9, PA5DJ: "a project standing on its own, separate from
+         ShackAssistant"): the shared code that used to be linked from ShackAssistant is in Shared\ (a copy of its own), the
          emoji pictures in Twemoji\, the Hamlib DLLs in ..\..\hamlib\. -->
     <HamlibBin>$(MSBuildThisFileDirectory)..\..\hamlib\</HamlibBin>
   </PropertyGroup>

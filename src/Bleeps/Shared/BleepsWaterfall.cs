@@ -5,8 +5,8 @@ using ShackAssistant.Helpers.Audio;
 namespace ShackAssistant.Forms;
 
 /// <summary>
-/// The Bleeps waterfall, built the way WSJT-X's Wide Graph builds it (PA5DJ: "het moet echt richting de resolutie van wsjtx",
-/// and "gebruik alleen voor bleeps in SA zelfde systeem voor waterval"). ONE copy for Mode Master in Bleeps and for the
+/// The Bleeps waterfall, built the way WSJT-X's Wide Graph builds it (PA5DJ: "it really has to go towards the resolution of WSJT-X",
+/// and "for Bleeps in SA, use the same waterfall system"). ONE copy for Mode Master in Bleeps and for the
 /// stand-alone Bleeps program (which links this file).
 /// <list type="bullet">
 /// <item>A LONG window: 65536 samples at 48 kHz = 1.37 s and 0.73 Hz a bin - WSJT-X's 16384 at 12 kHz. The four tones of

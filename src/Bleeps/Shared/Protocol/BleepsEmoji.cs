@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace ShackAssistant.Helpers.Audio.Bleeps;
 
 /// <summary>
-/// The emoji set of Bleeps (v1.0.736, PA5DJ: "ik wil een emoticon set toevoegen aan bleeps"; chosen: codes on the air, the
+/// The emoji set of Bleeps (v1.0.736, PA5DJ: "I want to add an emoticon set to Bleeps"; chosen: codes on the air, the
 /// emoji on the screen, a picker plus typing, a big set). NOTHING here changes the protocol: the text stays UTF-8.
 /// <para>On the screen (<see cref="Render"/>): a known <c>:code:</c> and a classic smiley (<c>:)</c> <c>;)</c> <c>&lt;3</c> ...,
 /// only as a word of its own) become the emoji; an emoji that arrives as itself stays.</para>
@@ -95,7 +95,7 @@ public static class BleepsEmoji
     }
 
     /// <summary>
-    /// While typing (v1.0.740, PA5DJ: "tijdens het typen als ik :rain: invul gelijk emoji van maken"): looks only at what stands
+    /// While typing (v1.0.740, PA5DJ: "while typing, when I enter :rain: turn it into the emoji right away"): looks only at what stands
     /// just before the caret. A known <c>:code:</c> becomes its emoji the moment the closing colon is typed; a classic smiley
     /// when the space after it is typed (only then is it a word of its own - "(see:)" stays). Returns false if nothing changes.
     /// </summary>

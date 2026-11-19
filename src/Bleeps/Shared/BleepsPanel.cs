@@ -26,7 +26,7 @@ internal sealed class BleepsPanel : UserControl
     private readonly Button _btnSend, _btnStop, _btnFree, _btnSettings, _btnNew, _btnEmoji;
     private ToolStripDropDown? _emojiDrop;
     // the picker's own tooltip: ShowAlways, because a drop-down never becomes the active window and a ToolTip only shows in
-    // an active one (v1.0.739, PA5DJ: "dan werken de tooltips niet")
+    // an active one (v1.0.739, PA5DJ: "then the tooltips don't work")
     private readonly ToolTip _emojiTips = new() { ShowAlways = true, InitialDelay = 250, ReshowDelay = 50, AutoPopDelay = 10000 };
     private Label? _emojiInfo;
     private readonly Label _lblTx, _lblCount, _lblStatus;
@@ -89,7 +89,7 @@ internal sealed class BleepsPanel : UserControl
             else SetStatus("Free spot: listening first - try again in a few seconds");
         };
         _tips.SetToolTip(_btnFree, "Move TX to the quietest place in the passband, away from strong stations.");
-        _chkAuto = new CheckBox { Text = "Auto", AutoSize = true, Anchor = AnchorStyles.Left, Checked = settings.GetBool("bleeps", "auto_free_spot", true) };   // on by default (PA5DJ: "zet deze optie default aan")
+        _chkAuto = new CheckBox { Text = "Auto", AutoSize = true, Anchor = AnchorStyles.Left, Checked = settings.GetBool("bleeps", "auto_free_spot", true) };   // on by default (PA5DJ: "turn this option on by default")
         _chkAuto.CheckedChanged += (_, _) => _settings.Set("bleeps", "auto_free_spot", _chkAuto.Checked);
         _tips.SetToolTip(_chkAuto, "Auto free spot: at every Send the program checks your place first. Still free: it stays (so the others find you). Taken or busy: it moves to the quietest place, then sends.");
         _lblCount = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
@@ -198,7 +198,7 @@ internal sealed class BleepsPanel : UserControl
     }
 
     /// <summary>What is waiting behind the message on the air: the count next to the bytes, and the lines themselves greyed
-    /// at the bottom of the chat (v1.0.734, PA5DJ: "ik wil zien wat de queue bevat").</summary>
+    /// at the bottom of the chat (v1.0.734, PA5DJ: "I want to see what the queue holds").</summary>
     public void SetQueued(IReadOnlyList<string> waiting) { _queued = waiting.Count; _chat.SetWaiting(waiting); UpdateCount(); }
 
     /// <summary>Right-click on a waiting line: take it out of the queue (its place in the queue, 0 = next).</summary>

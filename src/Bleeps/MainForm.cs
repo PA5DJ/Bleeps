@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.9";
+    public const string Version = "v1.0.10";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -106,6 +106,8 @@ internal sealed class MainForm : Form
         file.DropDownItems.Add("E&xit", null, (_, _) => Close());
         var help = new ToolStripMenuItem("&Help");
         help.DropDownItems.Add("Bleeps on the web", null, (_, _) => OpenUrl("https://shackassistant.com/guides/bleeps.html"));
+        help.DropDownItems.Add("www.ham4life.com", null, (_, _) => OpenUrl("https://www.ham4life.com"));
+        help.DropDownItems.Add("www.pa5dj.nl", null, (_, _) => OpenUrl("https://www.pa5dj.nl"));
         help.DropDownItems.Add("Open the &log folder", null, (_, _) => OpenFolder(Path.GetDirectoryName(Log.FilePath)!));
         help.DropDownItems.Add(new ToolStripSeparator());
         help.DropDownItems.Add("&About Bleeps", null, (_, _) => About());
@@ -612,8 +614,35 @@ internal sealed class MainForm : Form
     private void About()
     {
         string hamlib = HamlibNative.IsAvailable ? "Hamlib: " + HamlibNative.VersionString() : "Hamlib: not found";
-        MessageBox.Show(this,
-            $"Bleeps {Version}\nChat protocol for radio amateurs - by PA5DJ\n\nThe same Bleeps as in ShackAssistant (protocol version 0).\n{hamlib}\n\n{BleepsEmoji.Credit}",
-            "About Bleeps", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        using var f = new Form
+        {
+            Text = "About Bleeps", FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false,
+            ShowInTaskbar = false, StartPosition = FormStartPosition.CenterParent, AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(12), Icon = Icon
+        };
+        var t = new TableLayoutPanel { AutoSize = true, ColumnCount = 1, Dock = DockStyle.Fill };
+        void Line(string s, bool bold = false) => t.Controls.Add(new Label
+        {
+            Text = s, AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(0, 0, 0, 6),
+            Font = bold ? new Font(Font, FontStyle.Bold) : Font
+        });
+        void Link(string url)
+        {
+            var l = new LinkLabel { Text = url.Replace("https://", ""), AutoSize = true, Margin = new Padding(0, 0, 0, 4) };
+            l.LinkClicked += (_, _) => OpenUrl(url);
+            t.Controls.Add(l);
+        }
+        Line($"Bleeps {Version}", bold: true);
+        Line("Chat protocol for radio amateurs - by PA5DJ");
+        Link("https://www.ham4life.com");
+        Link("https://www.pa5dj.nl");
+        Line("\nThe same Bleeps as in ShackAssistant (protocol version 0).\n" + hamlib);
+        Line(BleepsEmoji.Credit);
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Anchor = AnchorStyles.Right, AutoSize = true };
+        t.Controls.Add(ok);
+        f.AcceptButton = ok; f.CancelButton = ok;
+        f.Controls.Add(t);
+        UITheme.Apply(f);
+        f.ShowDialog(this);
     }
 }

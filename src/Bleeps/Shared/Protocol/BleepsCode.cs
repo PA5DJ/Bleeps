@@ -4,7 +4,7 @@ namespace ShackAssistant.Helpers.Audio.Bleeps;
 
 /// <summary>
 /// The bit layer of Bleeps (PLAN-BLEEPS, PA5DJ 16 November 2026): ShackAssistant's own free-running text chat in the audio
-/// passband. PUBLIC since 18 November 2026 (PA5DJ: "Ik wil beide op de bleeps pagina. Doel is dat bleeps populair wordt") -
+/// passband. PUBLIC since 18 November 2026 (PA5DJ: "I want both on the Bleeps page. The goal is for Bleeps to become popular") -
 /// written out on the website (guides/bleeps.html#spec, with test vectors). This file and <c>tools/bleeps/bleeps_ref.py</c> are
 /// the specification; the two must send and read the same symbols bit for bit (measured in the scratchpad harness `bleeps`).
 /// A change here that changes what goes on the air: a new Version AND the website's description.
@@ -421,7 +421,7 @@ public sealed record BleepsSpeed(string Name, int SamplesPerSymbol, int[] Costas
 
     /// <summary>20.833 baud, ~83 Hz - the robust one (v1.0.713-).</summary>
     public static readonly BleepsSpeed Normal = new("Normal", 2304, new[] { 0, 2, 3, 1 }, new[] { 1, 3, 2, 0 }, 8, 2, 'N');
-    /// <summary>41.667 baud, ~166 Hz, twice as fast (PA5DJ: "een snelle variant erbij", ~2x FT4 allowed). Order-4 Costas
+    /// <summary>41.667 baud, ~166 Hz, twice as fast (PA5DJ: "add a fast variant", ~2x FT4 allowed). Order-4 Costas
     /// arrays that neither FT4 nor Normal use. Interleaver 8 x 4: the same ~2.7 s as Normal's 8 x 2 (measured in step 2 style).</summary>
     public static readonly BleepsSpeed Fast = new("Fast", 1152, new[] { 0, 3, 1, 2 }, new[] { 2, 1, 3, 0 }, 8, 4, 'F');
 

@@ -1,8 +1,8 @@
 namespace Bleeps;
 
 /// <summary>
-/// More than one Bleeps side by side, as WSJT-X does with --rig-name (v1.0.8, PA5DJ: "met een flag op cli sessies naast elkaar
-/// willen kunnen starten zoals bij wsjtx met --rig IC9700 etc. krijg dan zijn eigen appdata").
+/// More than one Bleeps side by side, as WSJT-X does with --rig-name (v1.0.8, PA5DJ: "I want to be able to start sessions side by side
+/// with a CLI flag, as in WSJT-X with --rig IC9700 etc. each then gets its own appdata").
 /// <c>Bleeps.exe --rig IC9700</c> (also <c>--rig=IC9700</c>, <c>--rig-name IC9700</c>, <c>-r IC9700</c>) gets its own settings
 /// (<c>%APPDATA%\Bleeps - IC9700</c>), its own log and chat logs (<c>Documents\Bleeps - IC9700</c>), its own single-instance lock
 /// and the name in its title. Without the flag nothing changes: <c>Bleeps</c>, as before.

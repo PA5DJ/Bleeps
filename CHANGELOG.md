@@ -1,5 +1,13 @@
 # Bleeps Changelog
 
+## v1.0.10
+
+- **Alle comments in het Engels** (PA5DJ: *"alle comment alles moet in het engels zijn"*): de laatste Nederlandse comments
+  (`WaterfallPanel.cs`: de kleurkromme en de paletstops) vertaald, en de citaten van PA5DJ in comments (ook in de csproj) nu in het
+  Engels. Alleen comments - geen code, het protocol is ongewijzigd.
+- **About noemt www.ham4life.com en www.pa5dj.nl** (PA5DJ: *"vermeld www.ham4life.com en www.pa5dj.nl en in about"*): About is nu een
+  klein venster met de twee als klikbare links (was een MessageBox), en ze staan ook in het Help-menu.
+
 ## v1.0.9
 
 - **Bleeps is een zelfstandig project** (PA5DJ: *"maak van Z:\\PROJECT\\SOFTWARE\\Bleeps en https://github.com/PA5DJ/Bleeps een zelf
