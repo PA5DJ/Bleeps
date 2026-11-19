@@ -1,5 +1,10 @@
 # Bleeps Changelog
 
+## v1.0.11
+
+- **De links naar www.ham4life.com en www.pa5dj.nl staan alleen in About** (PA5DJ: *"in help alleen link naar about venster"*): uit het
+  Help-menu gehaald; daar staat About Bleeps, dat ze toont.
+
 ## v1.0.10
 
 - **Alle comments in het Engels** (PA5DJ: *"alle comment alles moet in het engels zijn"*): de laatste Nederlandse comments
