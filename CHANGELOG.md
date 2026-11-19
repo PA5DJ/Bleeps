@@ -1,5 +1,12 @@
 # Bleeps Changelog
 
+## v1.0.15
+
+- **README.md voor GitHub met een guide** (PA5DJ: *"maak een readme voor github met een guide"*), in het Engels: wat Bleeps is,
+  installeren, snel beginnen, en per onderdeel een uitleg (Settings Station/Audio/Radio/Frequencies, bandknoppen en dial, de
+  waterval en zijn knoppen, chatten, TX drive, `--rig`, QO-100/full duplex), waar de bestanden staan, problemen oplossen, zelf
+  bouwen, en de vermeldingen (ham4life.com, pa5dj.nl, Hamlib LGPL, Twemoji CC-BY 4.0). Geen codewijziging.
+
 ## v1.0.14
 
 - **Settings > Radio: CI-V wordt ingevuld als we het adres weten** (PA5DJ: *"vul in als we het weten"*). Het standaardadres komt uit
