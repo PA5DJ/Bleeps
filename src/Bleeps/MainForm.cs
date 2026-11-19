@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.12";
+    public const string Version = "v1.0.13";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -102,6 +102,7 @@ internal sealed class MainForm : Form
         var file = new ToolStripMenuItem("&File");
         file.DropDownItems.Add("&Settings…", null, (_, _) => OpenSettings());
         file.DropDownItems.Add("Open the &chat log folder", null, (_, _) => OpenFolder(ChatFolder));
+        file.DropDownItems.Add("Open the &log folder", null, (_, _) => OpenFolder(Path.GetDirectoryName(Log.FilePath)!));
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("E&xit", null, (_, _) => Close());
         var help = new ToolStripMenuItem("&Help");

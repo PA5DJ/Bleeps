@@ -1,5 +1,10 @@
 # Bleeps Changelog
 
+## v1.0.13
+
+- **"Open the log folder" staat nu in het File-menu** (PA5DJ: *"Ja, naar File"*), onder "Open the chat log folder" - sinds v1.0.12
+  bevat Help alleen About.
+
 ## v1.0.12
 
 - **Het Help-menu bevat alleen About Bleeps** (PA5DJ: *"Ja, alleen About"*): "Bleeps on the web" en "Open the log folder" zijn eruit.
