@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+INNO/build/
+INNO/BleepsSetup_*.exe
+INNO/BleepsSetup_*.zip
+INNO/BleepsSetup_*.sha256.txt

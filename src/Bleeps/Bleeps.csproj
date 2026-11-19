@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <NoWarn>CS8618;CA2022;CA1416</NoWarn>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Bleeps</AssemblyName>
+    <RootNamespace>Bleeps</RootNamespace>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Company>PA5DJ</Company>
+    <Product>Bleeps</Product>
+    <Copyright>PA5DJ</Copyright>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>Bleeps.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The ShackAssistant sources this program shares: the Bleeps protocol (ONE copy, so both programs stay on the air
+         together), the waterfall, the spectrum and the Hamlib binding. -->
+    <SaSrc>$(MSBuildThisFileDirectory)..\..\..\ShackAssistant\src\ShackAssistant\</SaSrc>
+    <HamlibBin>$(MSBuildThisFileDirectory)..\..\..\ShackAssistant\hamlib-w64\bin\</HamlibBin>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(SaSrc)Helpers\Audio\Bleeps\BleepsCode.cs" Link="Shared\Protocol\BleepsCode.cs" />
+    <Compile Include="$(SaSrc)Helpers\Audio\Bleeps\BleepsModem.cs" Link="Shared\Protocol\BleepsModem.cs" />
+    <Compile Include="$(SaSrc)Helpers\Audio\Bleeps\BleepsReceiver.cs" Link="Shared\Protocol\BleepsReceiver.cs" />
+    <Compile Include="$(SaSrc)Helpers\Audio\Bleeps\BleepsEmoji.cs" Link="Shared\Protocol\BleepsEmoji.cs" />
+    <Compile Include="$(SaSrc)Helpers\Audio\Fft.cs" Link="Shared\Fft.cs" />
+    <Compile Include="$(SaSrc)Helpers\Audio\SpectrumAnalyzer.cs" Link="Shared\SpectrumAnalyzer.cs" />
+    <Compile Include="$(SaSrc)Helpers\HamlibNative.cs" Link="Shared\HamlibNative.cs" />
+    <Compile Include="$(SaSrc)Forms\WaterfallPanel.cs" Link="Shared\WaterfallPanel.cs" />
+    <Compile Include="$(SaSrc)Forms\BleepsPanel.cs" Link="Shared\BleepsPanel.cs" />
+    <Compile Include="$(SaSrc)Forms\BleepsSettingsForm.cs" Link="Shared\BleepsSettingsForm.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Splash.png">
+      <LogicalName>Splash.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Bleeps.ico">
+      <LogicalName>Bleeps.ico</LogicalName>
+    </EmbeddedResource>
+    <!-- The emoji pictures (Twemoji 72 x 72, CC-BY 4.0), the same set ShackAssistant carries. -->
+    <EmbeddedResource Include="$(SaSrc)Twemoji\*.png">
+      <LogicalName>Twemoji.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <Content Include="$(SaSrc)Twemoji\LICENSE.txt" Condition="Exists('$(SaSrc)Twemoji\LICENSE.txt')">
+      <Link>Twemoji-LICENSE.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Hamlib next to the exe: HamlibNative looks in <exe>\hamlib first. -->
+  <ItemGroup>
+    <Content Include="$(HamlibBin)libhamlib-4.dll"><Link>hamlib\libhamlib-4.dll</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(HamlibBin)libgcc_s_seh-1.dll"><Link>hamlib\libgcc_s_seh-1.dll</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(HamlibBin)libwinpthread-1.dll"><Link>hamlib\libwinpthread-1.dll</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(HamlibBin)libusb-1.0.dll" Condition="Exists('$(HamlibBin)libusb-1.0.dll')"><Link>hamlib\libusb-1.0.dll</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
+
+</Project>
