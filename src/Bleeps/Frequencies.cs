@@ -68,23 +68,9 @@ public static class FrequencyList
 {
     public static string FilePath => Path.Combine(AppSettings.Folder, "frequencies.json");
 
-    public static List<FrequencyEntry> Defaults() => new()
-    {
-        new() { MHz = 3.570, Description = "digimodes, under FT8" },
-        new() { MHz = 5.360, Description = "all-mode, above FT8" },
-        new() { MHz = 7.051, Description = "digimodes, above FT4" },
-        new() { MHz = 10.143, Description = "digimodes, above FT4" },
-        new() { MHz = 14.071, Description = "digimodes, under FT8" },
-        new() { MHz = 18.097, Description = "digimodes, under FT8" },
-        new() { MHz = 21.071, Description = "digimodes, under FT8" },
-        new() { MHz = 24.926, Description = "digimodes, above FT4/JS8" },
-        new() { MHz = 28.071, Description = "digimodes, under FT8" },
-        new() { MHz = 50.385, Description = "MGM, above meteor scatter" },
-        new() { MHz = 70.270, Description = "MGM centre of activity" },
-        new() { MHz = 144.605, Description = "data centre of activity" },
-        new() { MHz = 432.090, Description = "MGM, under SSB" },
-        new() { MHz = 2400.060, Description = "QO-100 uplink; downlink 10489.560 (digimodes 540-580)" },
-    };
+    /// <summary>The shared list (ShackAssistant's BleepsFrequencies - Mode Master's band buttons use the same).</summary>
+    public static List<FrequencyEntry> Defaults() =>
+        ShackAssistant.Helpers.Audio.Bleeps.BleepsFrequencies.All.Select(f => new FrequencyEntry { MHz = f.MHz, Description = f.Note }).ToList();
 
     public static List<FrequencyEntry> Load()
     {

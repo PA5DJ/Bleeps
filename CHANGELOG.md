@@ -1,5 +1,9 @@
 # Bleeps Changelog
 
+## v1.0.5
+
+- De standaard-frequentielijst komt uit het gedeelde `BleepsFrequencies.cs` van ShackAssistant (Mode Master's bandknoppen, SA v1.0.748): een lijst voor beide programma's.
+
 ## v1.0.4
 
 - De waterval is nu het GEDEELDE `Forms/BleepsWaterfall.cs` van ShackAssistant (dat Mode Master in Bleeps sinds v1.0.747 ook gebruikt): zelfde beeld en bediening in beide programma's, een kopie van de code.

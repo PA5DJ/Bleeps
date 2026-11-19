@@ -36,7 +36,7 @@ Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe 
 - `Rig.cs` - `RigConfig` (EEN radio, `[radio]` in de INI) en `RigControl`: Hamlib op EEN eigen draad met een wachtrij (Hamlib is niet
   thread-safe). Model 2 = rigctld, 4 = FLRig (poort `host:port`); geen radio + PTT RTS/DTR = Hamlibs dummy-rig met alleen de PTT-poort.
   `SetPtt` WACHT tot het gedaan is (de audio start na PTT). Mode bij afstemmen: None / USB / Data (PKTUSB).
-- `Frequencies.cs` - `FrequencyList` (`frequencies.json` in `%APPDATA%\Bleeps`), standaard de Bleeps-voorstellen (R1-bandplan, naast
+- `Frequencies.cs` - `FrequencyList` (standaard = het gedeelde `BleepsFrequencies.All` sinds v1.0.5) (`frequencies.json` in `%APPDATA%\Bleeps`), standaard de Bleeps-voorstellen (R1-bandplan, naast
   FT8/FT4, buiten CW/phone/RTTY; QO-100 als uplink 2400.060). `Bands` = bandtabel en frequentietekst ALTIJD met een punt.
 - `SettingsForm.cs` - Station (call), Audio (in/uit), Radio (Hamlib-lijst, poort of host:port, seriele lijnen, CI-V, PTT
   VOX/CAT/RTS/DTR + eigen PTT-poort, mode, TX delay/tail, poll), Frequencies (raster zoals WSJT-X: Insert/Delete/Reset).
