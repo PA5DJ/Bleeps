@@ -90,9 +90,14 @@ internal sealed class SettingsForm : Form
         return t;
     }
 
+    // the label of each row, so it goes grey WITH its control (v1.0.7, PA5DJ: "items die niet van toepassing bij een select
+    // zoals CAT, grijs maken" - a grey box beside a black label did not show)
+    private readonly Dictionary<Control, Label> _labels = new();
+
     private void Row(TableLayoutPanel t, string label, Control c, string tip)
     {
         var l = new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 10, 3) };
+        _labels[c] = l;
         t.Controls.Add(l);
         t.Controls.Add(c);
         _tips.SetToolTip(l, tip); _tips.SetToolTip(c, tip);
@@ -152,8 +157,11 @@ internal sealed class SettingsForm : Form
         foreach (var c in new Control[] { _baud, _dataBits, _stopBits, _hand, _dtr, _rts }) c.Enabled = rig && !net;
         _civ.Enabled = rig && !net && ((_model.SelectedItem as RigEntry)?.Name.StartsWith("Icom", StringComparison.OrdinalIgnoreCase) ?? false);
         _rigMode.Enabled = rig;
-        _pttPort.Enabled = _ptt.Text is "RTS" or "DTR";
+        _poll.Enabled = rig;                                   // nothing to read without a radio
         if (!rig && _ptt.Text == "CAT") _ptt.Text = "VOX";
+        _pttPort.Enabled = _ptt.Text is "RTS" or "DTR";        // CAT keys through Hamlib, VOX keys on the audio
+        _delay.Enabled = _tail.Enabled = _ptt.Text != "VOX";   // "between PTT and the audio" - with VOX there is no PTT
+        foreach (var (c, l) in _labels) l.Enabled = c.Enabled;
         if (net && _port.Text.Length == 0) _port.Text = model == 2 ? "127.0.0.1:4532" : "127.0.0.1:12345";
     }
 

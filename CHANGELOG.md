@@ -1,5 +1,13 @@
 # Bleeps Changelog
 
+## v1.0.7
+
+- **Settings > Radio: wat niet van toepassing is wordt grijs, opschrift en vak samen** (PA5DJ: *"items die niet van toepassing bij een
+  select zoals CAT, grijs maken"*). Tot nu werd alleen het vak grijs en bleef het opschrift zwart (PTT port bij CAT viel daardoor niet
+  op). Nu: PTT CAT -> PTT port; VOX -> PTT port, TX delay en PTT tail (er is geen PTT om op te wachten); geen radio -> baud, data/stop
+  bits, handshake, DTR, RTS, CI-V, Mode en Poll every. De waarden blijven bewaard.
+  Gemeten op het echte venster (los gebouwd, nooit OK): de vier standen, elk opschrift volgt zijn vak, `bleeps.ini` ongewijzigd.
+
 ## v1.0.6
 
 - **Stopte soms direct na de splash** (PA5DJ: *"stopt iedere keer na splash"*): exitcode 1, zonder foutmelding of logregel. Oorzaak in
