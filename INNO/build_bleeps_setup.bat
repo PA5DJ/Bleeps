@@ -96,7 +96,7 @@ exit /b 0
 
 :no_hamlib
 echo.
-echo ERROR: hamlib\libhamlib-4.dll is missing in the build. Is ..\ShackAssistant\hamlib-w64\bin there?
+echo ERROR: hamlib\libhamlib-4.dll is missing in the build. Is the hamlib folder of this repository there?
 pause
 exit /b 1
 

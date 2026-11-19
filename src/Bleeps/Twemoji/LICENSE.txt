@@ -1,0 +1,10 @@
+Twemoji graphics - the emoji pictures in this folder
+
+Copyright 2019 Twitter, Inc and other contributors
+Copyright 2024 jdecked and other contributors
+Code licensed under the MIT License: http://opensource.org/licenses/MIT
+Graphics licensed under CC-BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Source: https://github.com/jdecked/twemoji (v15.1.0, assets/72x72), unchanged.
+Used by ShackAssistant for the emoji in Bleeps (Helpers/Audio/Bleeps/BleepsEmoji.cs).
+A new emoji in BleepsEmoji.All needs its picture here: <codepoints in hex, without fe0f>.png

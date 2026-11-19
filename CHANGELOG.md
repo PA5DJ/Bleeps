@@ -1,5 +1,16 @@
 # Bleeps Changelog
 
+## v1.0.9
+
+- **Bleeps is een zelfstandig project** (PA5DJ: *"maak van Z:\\PROJECT\\SOFTWARE\\Bleeps en https://github.com/PA5DJ/Bleeps een zelf
+  opzich staand project los van shackassistant"*). Wat tot nu toe uit `..\ShackAssistant` gelinkt werd staat nu als EIGEN kopie in de
+  repository: `src\Bleeps\Shared\` (het protocol in `Shared\Protocol\`: BleepsCode, BleepsModem, BleepsReceiver, BleepsEmoji; en
+  BleepsFrequencies, Fft, SpectrumAnalyzer, HamlibNative, WaterfallPanel, BleepsPanel, BleepsSettingsForm, BleepsWaterfall),
+  `src\Bleeps\Twemoji\` (122 plaatjes + LICENSE.txt, CC-BY 4.0) en `hamlib\` (de vier Hamlib-DLL's, LGPL, met COPYING.LIB.txt,
+  COPYING.txt, LICENSE.txt en README.w64-bin.txt; COPYING.LIB gaat ook mee naast de exe). De csproj kent geen pad naar ShackAssistant
+  meer. Gekopieerd van ShackAssistant v1.0.750 (met de Hamlib-reparatie van v1.0.6).
+  Gemeten: een verse kloon in een map ZONDER ShackAssistant ernaast bouwt; de app start.
+
 ## v1.0.8
 
 - **Meer Bleeps naast elkaar, zoals WSJT-X** (PA5DJ: *"met een flag op cli sessies naast elkaar willen kunnen starten zoals bij wsjtx

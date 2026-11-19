@@ -3,22 +3,28 @@
 PA5DJ, 19 november 2026: *"Bouw een los staande versie van bleeps"* - met Inno en .bat-bestanden, volledige Hamlib-verbinding ook
 via rigctld (geen profielen), het Bleeps-logo als splash (`Bleeps-emoji-waves.png`), en frequentiebeheer + bandknoppen zoals WSJT-X.
 
-Antwoord in het Nederlands. Pushen alleen op verzoek (er is nog geen remote).
+Antwoord in het Nederlands. Pushen alleen op verzoek; remote: https://github.com/PA5DJ/Bleeps (branch `main`).
 
 ## Wat het is
 WinForms, .NET 10 (`src\Bleeps\Bleeps.csproj`, `src\Bleeps.slnx`). Versie in `MainForm.Version` + `AssemblyVersion/FileVersion`
 in de csproj + een sectie in `CHANGELOG.md`; bump bij elke wijziging en commit daarna.
 
-## GEDEELD met ShackAssistant - NIET gekopieerd
-De csproj LINKT deze bestanden uit `..\ShackAssistant\src\ShackAssistant\` (`$(SaSrc)`):
-- het protocol: `Helpers\Audio\Bleeps\BleepsCode.cs`, `BleepsModem.cs`, `BleepsReceiver.cs`, `BleepsEmoji.cs` (+ de Twemoji-PNG's);
-- `Helpers\Audio\Fft.cs`, `SpectrumAnalyzer.cs`, `Helpers\HamlibNative.cs`;
-- `Forms\WaterfallPanel.cs`, `Forms\BleepsPanel.cs` (chat + TX-regel), `Forms\BleepsSettingsForm.cs`, en sinds v1.0.4
-  `Forms\BleepsWaterfall.cs` (de waterval zoals WSJT-X + zijn balk; Mode Master gebruikt hem in Bleeps sinds SA v1.0.747).
-EEN kopie van het protocol: anders lopen de twee programma's uit elkaar en decoderen ze elkaar niet meer.
-**Een wijziging in die bestanden in ShackAssistant moet hier ook bouwen.** Wat ze van ShackAssistant aanroepen
-(`AppSettings`, `AppTheme`, `UITheme`) staat nagebouwd in `Shims.cs` (zelfde namen en leden, namespace `ShackAssistant.Helpers`).
-Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe in `hamlib\` (HamlibNative kijkt daar eerst).
+## ZELFSTANDIG sinds v1.0.9 - los van ShackAssistant
+PA5DJ, 19 november 2026: *"een zelf opzich staand project los van shackassistant"*. Alles wat nodig is staat in DEZE repository; de
+csproj kent geen pad naar `..\ShackAssistant` meer, en een verse kloon bouwt zonder ShackAssistant ernaast.
+- `src\Bleeps\Shared\` - de code die tot v1.0.8 uit ShackAssistant gelinkt werd, nu een EIGEN KOPIE (van SA v1.0.750):
+  `Shared\Protocol\` = het protocol (`BleepsCode.cs`, `BleepsModem.cs`, `BleepsReceiver.cs`, `BleepsEmoji.cs`), en `BleepsFrequencies.cs`,
+  `Fft.cs`, `SpectrumAnalyzer.cs`, `HamlibNative.cs`, `WaterfallPanel.cs`, `BleepsPanel.cs` (chat + TX-regel), `BleepsSettingsForm.cs`,
+  `BleepsWaterfall.cs`. De namespaces (`ShackAssistant.Helpers...`) zijn gebleven zoals ze waren; wat ze van ShackAssistant aanriepen
+  (`AppSettings`, `AppTheme`, `UITheme`) staat nagebouwd in `Shims.cs`.
+- **Het PROTOCOL moet gelijk blijven aan dat van ShackAssistant**, anders decoderen de twee programma's elkaar niet meer. Het is
+  openbaar beschreven (shackassistant.com/guides/bleeps.html#spec, versie 0, met testvectoren). Een wijziging die de lucht verandert =
+  een nieuwe `Version` in de header, in BEIDE programma's, en de beschrijving + testvectoren bijwerken.
+- `src\Bleeps\Twemoji\` - de emoji (Twemoji 72 x 72, CC-BY 4.0, `LICENSE.txt`); de vermelding (About, kiezer) mag niet weg.
+- `hamlib\` - de Hamlib-DLL's (4.7.2, LGPL; `COPYING.LIB.txt` gaat mee naast de exe) - een nieuwe Hamlib = deze vier DLL's vervangen.
+- **Hamlib sluit het proces af bij een dubbel geregistreerde backend** (`rig_register`: "Hash collision!!! Fatal error!!", `exit(1)`):
+  `HamlibNative.rig_init` laadt daarom eerst de modellenlijst en init onder hetzelfde slot (v1.0.6). Roep `rig_load_all_backends`
+  nergens anders aan.
 
 ## Eigen code (`src\Bleeps`)
 - `MainForm.cs` - radiobalk zoals WSJT-X (bandlijst die ook een getypte frequentie/band neemt, dial "14.071 000", mode), bandknoppen
