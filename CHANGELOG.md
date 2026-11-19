@@ -1,5 +1,12 @@
 # Bleeps Changelog
 
+## v1.0.19
+
+- **The TX marker is in the waterfall from the start** (PA5DJ: *"when the app starts I don't see the TX marker"*). The markers
+  were only drawn when the TX place changed or a station was decoded, so after starting the waterfall had no TX line until
+  then. `MainForm.OnShown` now draws them once. Checked in a test instance: the red TX line with its strip at 1000 Hz right
+  after starting.
+
 ## v1.0.18
 
 - **Satellite mode: MAIN and SUB are both read automatically** (PA5DJ: *"this does not work well at all.. just read MAIN and

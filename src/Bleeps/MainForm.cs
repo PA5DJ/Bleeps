@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.18";
+    public const string Version = "v1.0.19";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -177,6 +177,7 @@ internal sealed class MainForm : Form
         StartAudio();
         StartRig();
         StartRx();
+        UpdateMarkers();   // the TX marker from the start - before, it came only with a TX change or the first decode
         _ui.Start();
         if (MyCall.Length == 0)
         {
