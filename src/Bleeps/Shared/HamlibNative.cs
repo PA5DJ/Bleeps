@@ -115,7 +115,7 @@ public static class HamlibNative
     private static extern IntPtr rig_init_native(int rig_model);
 
     /// <summary>
-    /// rig_init, but never at the same time as Hamlib loading its backends (SA v1.0.750, Bleeps app: "stopt iedere keer na
+    /// rig_init, but never at the same time as Hamlib loading its backends (SA v1.0.750, Bleeps app: "it stops every time after the
     /// splash"). In Hamlib 4.7.2 <c>rig_register</c> ends the WHOLE PROCESS - <c>printf("Hash collision!!! Fatal error!!");
     /// exit(1);</c> - when a backend registers twice. <c>rig_load_all_backends</c> (the model list, <see cref="RigModels"/>)
     /// empties the table and registers every backend, and <c>rig_init</c> on another thread loads its own backend when the

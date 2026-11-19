@@ -445,7 +445,7 @@ public sealed class BleepsReceiver : IAudioHistory
     /// <summary>Our own call (v1.0.719, full duplex): our own signal heard back (QO-100) never makes a place "taken" for
     /// Free spot / Auto free spot - otherwise the next message would jump away from where we just were.</summary>
     public volatile string? OwnCall;
-    /// <summary>Decoder threads (PA5DJ: "zoals wsjtx"/JTDX): 0 = Auto = cores - 1 (one stays free for the waterfall and the
+    /// <summary>Decoder threads (PA5DJ: "like WSJT-X"/JTDX): 0 = Auto = cores - 1 (one stays free for the waterfall and the
     /// rest of the program), else that many. The decoders are independent, so the result is the same either way
     /// (measured in `bleeps busy threads`).</summary>
     public int Threads = 0;

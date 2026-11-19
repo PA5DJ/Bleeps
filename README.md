@@ -4,9 +4,6 @@
 4-tone signal in the audio passband of your SSB/data radio. Everyone on the frequency who runs Bleeps reads it in a chat
 window - no fixed time slots, no fixed exchange, just text (and emoji 🙂).
 
-This is the **stand-alone Windows program**. The same Bleeps is built into
-[ShackAssistant](https://shackassistant.com/guides/bleeps.html); the two talk to each other on the air.
-
 - Radio control through **Hamlib** (300+ radios), **rigctld** or **FLRig** - frequency, mode and PTT
 - Band buttons and a frequency box like **WSJT-X**, with suggested Bleeps frequencies from 80 m to QO-100
 - A **waterfall** built the way WSJT-X's Wide Graph is, with the same controls
@@ -14,8 +11,7 @@ This is the **stand-alone Windows program**. The same Bleeps is built into
 - **Auto free spot**: at every Send it checks your place and moves to a quiet one if it is taken
 - Several radios side by side with `--rig NAME`, each with its own settings and logs
 
-> Website and protocol description: <https://shackassistant.com/guides/bleeps.html>
-> (the [specification](https://shackassistant.com/guides/bleeps.html#spec) is public, with test vectors).
+The protocol is open: see [Protocol description](#protocol-description) below, with test vectors.
 
 ---
 
@@ -35,8 +31,9 @@ This is the **stand-alone Windows program**. The same Bleeps is built into
    - [QO-100 and full duplex](#qo-100-and-full-duplex)
 4. [Where Bleeps keeps its files](#where-bleeps-keeps-its-files)
 5. [Troubleshooting](#troubleshooting)
-6. [Building from source](#building-from-source)
-7. [Credits and licences](#credits-and-licences)
+6. [Protocol description](#protocol-description)
+7. [Building from source](#building-from-source)
+8. [Credits and licences](#credits-and-licences)
 
 ---
 
@@ -223,6 +220,126 @@ With `--rig NAME` the folders are called `Bleeps - NAME`.
 | Signal splatters / others can't read you | Lower the **TX drive** until the ALC stays still. |
 | Something else | Look in the debug log (**File -> Open the log folder**). |
 
+## Protocol description
+
+Bleeps protocol **version 0**. Anyone may implement it. The reference is the code in `src\Bleeps\Shared\Protocol\`
+(`BleepsCode.cs`, `BleepsModem.cs`); an implementation is correct when it produces the [test vectors](#test-vectors) bit
+for bit. A change that alters what goes on the air needs a new version number.
+
+### Overview
+
+```
+text (UTF-8) -> varicode -> + header, CRCs, tails -> convolutional code K=7 r=1/2 -> interleaver
+             -> 2 bits per symbol (Gray) -> 4-tone frame with Costas syncs -> GFSK audio
+```
+
+A message is one call sign plus up to 250 bytes of UTF-8 text. There are no time slots: a station sends whenever it likes,
+and the receiver searches the whole passband for the start syncs.
+
+### The signal
+
+| | Normal | Fast |
+|---|---|---|
+| Samples per symbol (at 48 kHz) | 2304 | 1152 |
+| Symbol rate | 20.833 baud | 41.667 baud |
+| Tone spacing (= symbol rate) | 20.833 Hz | 41.667 Hz |
+| Occupied bandwidth (4 tone steps) | ~83 Hz | ~167 Hz |
+| Start sync (Costas, sent 3x) | `0 2 3 1` | `0 3 1 2` |
+| End sync (sent 2x) | `1 3 2 0` | `2 1 3 0` |
+| Interleaver (branches x step) | 8 x 2 | 8 x 4 |
+| Text speed | ~3 characters/s | ~6 characters/s |
+
+- **4 tones** (0-3); the transmit frequency is that of **tone 0**, tone *k* is at f0 + *k* x spacing.
+- **GFSK** with a Gaussian frequency pulse, **BT = 1.0** (as FT4), modulation index 1, continuous phase. The pulse:
+  `p(t) = ½ [erf(c(t+½)) − erf(c(t−½))]`, `c = π·√(2/ln 2)·BT`, t in symbols; the shifted pulses add up to 1.
+- Half a symbol of raised-cosine **amplitude ramp** at the start and the end; the first and last tone are held through it.
+- The sync arrays are order-4 Costas arrays that FT4 does **not** use, and Normal and Fast each have their own - that is how a
+  receiver tells the two speeds apart.
+
+### The frame (symbols)
+
+```
+START = start Costas x3 | DATA ... (one start Costas after every 48 data symbols, if more data follows) | END = end Costas x2
+```
+
+### The bits
+
+The **info bits**, in this order (all numbers most significant bit first):
+
+| Field | Bits | |
+|---|---|---|
+| Version | 4 | `0` |
+| Call | 10 x 6 | Characters from ` ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/` (index 0..37), padded with spaces to 10 |
+| CRC-12 | 12 | Over the 64 bits above. Poly `0x80F`, init 0, MSB first |
+| Tail | 6 | Zeros |
+| Text | ... | Per UTF-8 byte: its varicode word + `00` |
+| EOT | ... | The varicode word of byte `0x04` + `00` |
+| CRC-16 | 16 | Over the UTF-8 text bytes: CRC-16/CCITT-FALSE (poly `0x1021`, init `0xFFFF`, no reflection) |
+| Tail | 6 | Zeros |
+
+A receiver trusts nothing when the CRC-12 of the header fails. Text that arrives without a valid CRC-16 is shown, but
+marked incomplete.
+
+**Varicode.** Bleeps has its own table, built by a rule both sides can repeat:
+1. The words: all bit strings that start and end with `1` and have no `00` inside, in order of length, then of value
+   (`1`, `11`, `101`, `111`, `1011`, `1101`, `1111`, `10101`, ...).
+2. The byte values, from most to least common: first the characters of this line (it starts with a space)
+
+   ```
+    etaoinsrhldcumfpgwybvkxjqz.,ETAOINSRHLDCUMFPGWYBVKXJQZ0123456789?!'-/:;()"@#&+=*%$_<>[]{}|\~^`
+   ```
+
+   then `0x04` (EOT), `0xC3`, `0xE2`, `0x0A`, then every other byte value 0..255 in rising order.
+3. The *n*-th byte value gets the *n*-th word.
+
+Because a word never contains `00`, the `00` after every word marks where it ends.
+
+**Convolutional code.** K = 7, rate 1/2, generator masks `0x6D` and `0x4F` (over the 7-bit register, the newest bit as the
+least significant), starting in state 0. Per info bit: shift it in, output `parity(reg & 0x6D)`, then
+`parity(reg & 0x4F)`.
+
+**Interleaver.** Convolutional (Forney), 8 branches: `y[n] = x[n − (n mod 8) · 8 · step]`, with x = 0 before the start.
+Append `7 · step · 8` zero bits (112 for Normal, 224 for Fast) so everything leaves. Both speeds spread a burst over about
+2.7 s.
+
+**Bits to tones.** Two coded bits per symbol, the first one first: the value `b0·2 + b1` maps to the tone `0 1 3 2`
+(Gray code).
+
+### Test vectors
+
+Varicode: `' '` = `1`, `e` = `11`, `t` = `101`, `a` = `111`, `E` = `1110111`, `0` = `101010111`, `?` = `101111101`,
+EOT = `1010111111`. CRC-16 of the ASCII bytes `123456789` = `0x29B1`.
+
+**Call `PA5DJ`, text `hi`** - 129 info bits:
+
+```
+000001000000000110000000010000101000000000000000000000000000000001111100010000000011011001101001010111111000110001000000011000000
+```
+
+258 coded bits; Normal: 370 after the interleaver, 217 symbols (10.42 s):
+
+```
+0231023102310000000030000000200033000000310003002000033011100231020003330003001200223021301230130301230002010000023120303330030022203230330010111312300301111213030002310111012100330031000000030003000100000001013201320
+```
+
+Fast: 482 after the interleaver, 281 symbols (6.74 s):
+
+```
+03120312031200000000300000003000300010003000000033000000100003120300110003000000030032003130300000003020000010000312333033231313301331132311030203022331123001010330031210310010030002000110001001000113001200310023002103120000000000020001000000020003000000000001000000010312021302130
+```
+
+**Call `PA5DJ`, empty text** - 116 info bits:
+
+```
+00000100000000011000000001000010100000000000000000000000000000000111110001000000001010111111001111111111111111000000
+```
+
+Normal, 204 symbols (9.79 s):
+
+```
+023102310231000000003000000020003300000031000300200003301110023102000333000300120022302130123013030113003201000002310030333030002020203012000211020201200122013100120231001000020013000100020001000113201320
+```
+
 ## Building from source
 
 Requirements: Windows, the **.NET 10 SDK**, and for the installer **Inno Setup 6**. The scripts in `INNO\` fetch the
@@ -241,7 +358,7 @@ Or open `src\Bleeps.slnx` in Visual Studio. Everything needed is in this reposit
 | Folder | What |
 |---|---|
 | `src\Bleeps\` | The program (WinForms, .NET 10) |
-| `src\Bleeps\Shared\Protocol\` | The Bleeps protocol - keep it identical to ShackAssistant's, or the two stop reading each other |
+| `src\Bleeps\Shared\Protocol\` | The Bleeps protocol (`BleepsCode.cs` = the bit layer, `BleepsModem.cs` = the signal) |
 | `src\Bleeps\Shared\` | Waterfall, spectrum, Hamlib wrapper, chat panel |
 | `src\Bleeps\Twemoji\` | The emoji pictures |
 | `hamlib\` | The Hamlib 4.7.2 DLLs |

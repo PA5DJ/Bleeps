@@ -1,63 +1,83 @@
-# Bleeps (los programma) - CLAUDE.md
+# Bleeps (stand-alone program) - CLAUDE.md
 
-PA5DJ, 19 november 2026: *"Bouw een los staande versie van bleeps"* - met Inno en .bat-bestanden, volledige Hamlib-verbinding ook
-via rigctld (geen profielen), het Bleeps-logo als splash (`Bleeps-emoji-waves.png`), en frequentiebeheer + bandknoppen zoals WSJT-X.
+PA5DJ, 19 November 2026: *"Build a stand-alone version of Bleeps"* - with Inno and .bat files, full Hamlib connection also via
+rigctld (no profiles), the Bleeps logo as splash (`Bleeps-emoji-waves.png`), and frequency management + band buttons like WSJT-X.
 
-Antwoord in het Nederlands. Pushen alleen op verzoek; remote: https://github.com/PA5DJ/Bleeps (branch `main`).
+## Language
+- **Chat with PA5DJ in Dutch.**
+- **Everything in the repository and on GitHub is ALWAYS English**: code, comments, UI text, commit messages, CHANGELOG.md,
+  README.md, this file. PA5DJ's quotes in comments and the changelog are translated to English as well. (PA5DJ, 19 November
+  2026: what we chat is Dutch, but code and comments are always English, everywhere.)
 
-## Wat het is
-WinForms, .NET 10 (`src\Bleeps\Bleeps.csproj`, `src\Bleeps.slnx`). Versie in `MainForm.Version` + `AssemblyVersion/FileVersion`
-in de csproj + een sectie in `CHANGELOG.md`; bump bij elke wijziging en commit daarna.
+Push only when asked; remote: https://github.com/PA5DJ/Bleeps (branch `main`).
 
-## ZELFSTANDIG sinds v1.0.9 - los van ShackAssistant
-PA5DJ, 19 november 2026: *"een zelf opzich staand project los van shackassistant"*. Alles wat nodig is staat in DEZE repository; de
-csproj kent geen pad naar `..\ShackAssistant` meer, en een verse kloon bouwt zonder ShackAssistant ernaast.
-- `src\Bleeps\Shared\` - de code die tot v1.0.8 uit ShackAssistant gelinkt werd, nu een EIGEN KOPIE (van SA v1.0.750):
-  `Shared\Protocol\` = het protocol (`BleepsCode.cs`, `BleepsModem.cs`, `BleepsReceiver.cs`, `BleepsEmoji.cs`), en `BleepsFrequencies.cs`,
-  `Fft.cs`, `SpectrumAnalyzer.cs`, `HamlibNative.cs`, `WaterfallPanel.cs`, `BleepsPanel.cs` (chat + TX-regel), `BleepsSettingsForm.cs`,
-  `BleepsWaterfall.cs`. De namespaces (`ShackAssistant.Helpers...`) zijn gebleven zoals ze waren; wat ze van ShackAssistant aanriepen
-  (`AppSettings`, `AppTheme`, `UITheme`) staat nagebouwd in `Shims.cs`.
-- **Het PROTOCOL moet gelijk blijven aan dat van ShackAssistant**, anders decoderen de twee programma's elkaar niet meer. Het is
-  openbaar beschreven (shackassistant.com/guides/bleeps.html#spec, versie 0, met testvectoren). Een wijziging die de lucht verandert =
-  een nieuwe `Version` in de header, in BEIDE programma's, en de beschrijving + testvectoren bijwerken.
-- `src\Bleeps\Twemoji\` - de emoji (Twemoji 72 x 72, CC-BY 4.0, `LICENSE.txt`); de vermelding (About, kiezer) mag niet weg.
-- `hamlib\` - de Hamlib-DLL's (4.7.2, LGPL; `COPYING.LIB.txt` gaat mee naast de exe) - een nieuwe Hamlib = deze vier DLL's vervangen.
-- **Hamlib sluit het proces af bij een dubbel geregistreerde backend** (`rig_register`: "Hash collision!!! Fatal error!!", `exit(1)`):
-  `HamlibNative.rig_init` laadt daarom eerst de modellenlijst en init onder hetzelfde slot (v1.0.6). Roep `rig_load_all_backends`
-  nergens anders aan.
+## What it is
+WinForms, .NET 10 (`src\Bleeps\Bleeps.csproj`, `src\Bleeps.slnx`). Version in `MainForm.Version` + `AssemblyVersion/FileVersion`
+in the csproj + a section in `CHANGELOG.md`; bump at every change and commit afterwards.
 
-## Eigen code (`src\Bleeps`)
-- `MainForm.cs` - radiobalk zoals WSJT-X (bandlijst die ook een getypte frequentie/band neemt, dial "14.071 000", mode), bandknoppen
-  (een per band uit de frequentielijst, meer frequenties op een band = een menuutje; de band van de radio oranje), chat, waterval met
-  TX-drive (demping in dB, `[audio] tx_atten`). De ontvang/zend-lijm is die van `CwWindow.Bleeps.cs` van ShackAssistant
-  (ontvanger op een eigen draad, wachtrij, chatlog `Documenten\Bleeps\chat\JJJJ-MM-DD.txt`, eigen echo bij full duplex).
-- **De waterval zoals WSJT-X** (v1.0.1; sinds v1.0.4 staat de code in het gedeelde `BleepsWaterfall.cs`, INI hier `[waterfall]` zonder voorvoegsel, PA5DJ: *"het moet echt richting de resolutie van wsjtx"*): `MainForm.WaterfallStep`
-  - venster 65536 op 48 kHz (= 16384 op 12 kHz, 0,73 Hz), elke `WfHop` (3840 = 80 ms) nieuwe audio een spectrum, `[waterfall] avg`
-  (5) ervan in VERMOGEN gemiddeld per rij, per pixel alle bins opgeteld (nooit een bin kiezen). Kleur: `FloorDb` = ruis + 7 + `floor`
-  (0), `CurveDb` = `span` (30) - de Skim-curve van `WaterfallPanel` begint 7 dB onder FloorDb; met de 11 dB van ShackAssistant werd
-  elk station wit. CeilingDb doet in deze stand niets. Gemeten in scratchpad `bleepswf` (nep-band: -10/0/+10 dB Bleeps + draaggolf).
-  - **Bediening onder de waterval (v1.0.2)** zoals WSJT-X: Bins/Pixel (`bpp`, 4), Start (`start`, 100), N Avg (`avg`, 5 = de
-    SNELHEID), Gain (`gain`: span = 30 / 10^(0,015 x Gain) dB, WSJT-X's stap) en Zero (`zero`: vloer -0,2 dB per stap). Het bereik
-    is Start .. Start + breedte x Bins/Pixel x 0,73 Hz (max 6 kHz, `ApplyWfRange`, ook bij Resize); Bins/Pixel en Start wissen het beeld.
-- `Rig.cs` - `RigConfig` (EEN radio, `[radio]` in de INI) en `RigControl`: Hamlib op EEN eigen draad met een wachtrij (Hamlib is niet
-  thread-safe). Model 2 = rigctld, 4 = FLRig (poort `host:port`); geen radio + PTT RTS/DTR = Hamlibs dummy-rig met alleen de PTT-poort.
-  `SetPtt` WACHT tot het gedaan is (de audio start na PTT). Mode bij afstemmen: None / USB / Data (PKTUSB).
-- `Frequencies.cs` - `FrequencyList` (standaard = het gedeelde `BleepsFrequencies.All` sinds v1.0.5) (`frequencies.json` in `%APPDATA%\Bleeps`), standaard de Bleeps-voorstellen (R1-bandplan, naast
-  FT8/FT4, buiten CW/phone/RTTY; QO-100 als uplink 2400.060). `Bands` = bandtabel en frequentietekst ALTIJD met een punt.
-- `SettingsForm.cs` - Station (call), Audio (in/uit), Radio (Hamlib-lijst, poort of host:port, seriele lijnen, CI-V, PTT
-  VOX/CAT/RTS/DTR + eigen PTT-poort, mode, TX delay/tail, poll), Frequencies (raster zoals WSJT-X: Insert/Delete/Reset).
-- `Audio.cs` - WinMM in/uit + `TxPlayer` (PTT altijd los in de finally), zonder de LAN-audio van ShackAssistant.
-- `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`; sinds v1.0.3 staat hij `Program.SplashMs` (3 s) ALLEEN in beeld en verschijnt
-  het hoofdvenster pas daarna - eerst opende dat er meteen overheen en leek de splash direct te sluiten), `Log.cs` (`Documenten\Bleeps\debug\Bleeps.log`), `Program.cs`.
-- Instellingen: `%APPDATA%\Bleeps\bleeps.ini`.
-- **`--rig NAAM`** (v1.0.8, zoals WSJT-X's `--rig-name`): `Instance.cs` - eigen `%APPDATA%\Bleeps - NAAM`, `Documenten\Bleeps - NAAM`,
-  mutex en titel. Een nieuwe plek die een map of een vaste naam gebruikt: neem `Instance.FolderName` / `Instance.Suffix`, nooit
-  "Bleeps" letterlijk, anders lopen de sessies door elkaar.
+## STAND-ALONE since v1.0.9 - separate from ShackAssistant
+PA5DJ, 19 November 2026: *"a project standing on its own, separate from ShackAssistant"*. Everything needed is in THIS repository;
+the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds without ShackAssistant next to it.
+- `src\Bleeps\Shared\` - the code that was linked from ShackAssistant up to v1.0.8, now a copy OF ITS OWN (of SA v1.0.750):
+  `Shared\Protocol\` = the protocol (`BleepsCode.cs`, `BleepsModem.cs`, `BleepsReceiver.cs`, `BleepsEmoji.cs`), and
+  `BleepsFrequencies.cs`, `Fft.cs`, `SpectrumAnalyzer.cs`, `HamlibNative.cs`, `WaterfallPanel.cs`, `BleepsPanel.cs` (chat + TX line),
+  `BleepsSettingsForm.cs`, `BleepsWaterfall.cs`. The namespaces (`ShackAssistant.Helpers...`) stayed as they were; what they called
+  in ShackAssistant (`AppSettings`, `AppTheme`, `UITheme`) is rebuilt in `Shims.cs`.
+- **The PROTOCOL must stay identical to ShackAssistant's**, or the two programs no longer decode each other. It is publicly
+  described (shackassistant.com/guides/bleeps.html#spec, version 0, with test vectors). A change that alters what goes on the air =
+  a new `Version` in the header, in BOTH programs, and update the description + test vectors.
+- `src\Bleeps\Twemoji\` - the emoji (Twemoji 72 x 72, CC-BY 4.0, `LICENSE.txt`); the credit (About, picker) must not go.
+- `hamlib\` - the Hamlib DLLs (4.7.2, LGPL; `COPYING.LIB.txt` goes along next to the exe) - a new Hamlib = replace these four DLLs.
+- **Hamlib ends the process on a backend registered twice** (`rig_register`: "Hash collision!!! Fatal error!!", `exit(1)`):
+  `HamlibNative.rig_init` therefore loads the model list first and inits under the same lock (v1.0.6). Never call
+  `rig_load_all_backends` anywhere else.
 
-## Bouwen
-- `INNO\build_bleeps.bat` (publish naar `INNO\build`), `build_bleeps_and_run.bat`, `build_bleeps_setup.bat` (publish + Inno
-  `bleeps.iss` + zip + sha256). `ensure_dotnet_sdk.bat` / `ensure_inno_setup.bat` zijn die van ShackAssistant.
-- Gemeten in de scratchpad-harnas `bleepsapp` (19): een echte `rigctld -m 1` op 127.0.0.1:45320 - verbinden, bandknop, getypte
-  frequentie en band, dial volgt de radio, PTT aan/uit via CAT, een Bleeps-bericht als audio erin -> in de chat en het chatlog,
-  de instellingen (305 Hamlib-modellen, 14 frequenties). Nooit de echte kaart of PTT; de harnas ruimt `%APPDATA%\Bleeps` en
-  `Documenten\Bleeps` op (en weigert als die al bestaan).
+## Own code (`src\Bleeps`)
+- `MainForm.cs` - radio bar like WSJT-X (band list that also takes a typed frequency/band, dial "14.071 000", mode), band buttons
+  (one per band from the frequency list, more frequencies on a band = a small menu; the radio's band orange), chat, waterfall with
+  TX drive (attenuation in dB, `[audio] tx_atten`). The receive/send glue is that of ShackAssistant's `CwWindow.Bleeps.cs`
+  (receiver on its own thread, queue, chat log `Documents\Bleeps\chat\YYYY-MM-DD.txt`, own echo in full duplex).
+  Menus: File = Settings, chat log folder, log folder, Exit; Help = only About (a small window with links to www.ham4life.com
+  and www.pa5dj.nl, Hamlib version and the Twemoji credit).
+- **The waterfall like WSJT-X** (v1.0.1; since v1.0.4 the code is in the shared `BleepsWaterfall.cs`, INI here `[waterfall]`
+  without a prefix, PA5DJ: *"it really has to go towards the resolution of WSJT-X"*): `MainForm.WaterfallStep`
+  - window 65536 at 48 kHz (= 16384 at 12 kHz, 0.73 Hz), every `WfHop` (3840 = 80 ms) of new audio a spectrum, `[waterfall] avg`
+  (5) of them averaged in POWER per line, per pixel all bins added up (never pick one bin). Colour: `FloorDb` = noise + 7 + `floor`
+  (0), `CurveDb` = `span` (30) - the Skim curve of `WaterfallPanel` starts 7 dB under FloorDb; with ShackAssistant's 11 dB every
+  station went white. CeilingDb does nothing in this mode. Measured in scratchpad `bleepswf` (fake band: -10/0/+10 dB Bleeps +
+  carrier).
+  - **Controls under the waterfall (v1.0.2)** like WSJT-X: Bins/Pixel (`bpp`, 4), Start (`start`, 100), N Avg (`avg`, 5 = the
+    SPEED), Gain (`gain`: span = 30 / 10^(0.015 x Gain) dB, WSJT-X's step) and Zero (`zero`: floor -0.2 dB per step). The range
+    is Start .. Start + width x Bins/Pixel x 0.73 Hz (max 6 kHz, `ApplyWfRange`, also on Resize); Bins/Pixel and Start clear the
+    picture.
+- `Rig.cs` - `RigConfig` (ONE radio, `[radio]` in the INI) and `RigControl`: Hamlib on ONE thread of its own with a queue (Hamlib is
+  not thread-safe). Model 2 = rigctld, 4 = FLRig (port `host:port`); no radio + PTT RTS/DTR = Hamlib's dummy rig with only the PTT
+  port. `SetPtt` WAITS until it is done (the audio starts after PTT). Mode when tuning: None / USB / Data (PKTUSB).
+  `RigConfig.DefaultCivAddress(model)` (v1.0.14): the model's default CI-V address from Hamlib (`rig_init` + `civaddr`, decimal ->
+  hex), "" = not a CI-V radio.
+- `Frequencies.cs` - `FrequencyList` (default = the shared `BleepsFrequencies.All` since v1.0.5) (`frequencies.json` in
+  `%APPDATA%\Bleeps`), by default the Bleeps suggestions (R1 band plan, next to FT8/FT4, clear of CW/phone/RTTY; QO-100 as uplink
+  2400.060). `Bands` = band table and frequency text ALWAYS with a point.
+- `SettingsForm.cs` - Station (call), Audio (in/out), Radio (Hamlib list, port or host:port, serial lines, CI-V (filled in with the
+  model's default, grey without CI-V), PTT VOX/CAT/RTS/DTR + own PTT port, mode, TX delay/tail, poll), Frequencies (grid like
+  WSJT-X: Insert/Delete/Reset).
+- `Audio.cs` - WinMM in/out + `TxPlayer` (PTT always released in the finally), without ShackAssistant's LAN audio.
+- `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`; since v1.0.3 it stays on screen ALONE for `Program.SplashMs`
+  (3 s) and the main window appears only after it - before, that opened on top of it at once and the splash seemed to close
+  immediately), `Log.cs` (`Documents\Bleeps\debug\Bleeps.log`), `Program.cs`.
+- Settings: `%APPDATA%\Bleeps\bleeps.ini`.
+- **`--rig NAME`** (v1.0.8, like WSJT-X's `--rig-name`): `Instance.cs` - its own `%APPDATA%\Bleeps - NAME`,
+  `Documents\Bleeps - NAME`, mutex and title. A new place that uses a folder or a fixed name: take `Instance.FolderName` /
+  `Instance.Suffix`, never "Bleeps" literally, or the sessions get mixed up.
+- `README.md` (v1.0.15) - the user guide on GitHub; update it when a feature, setting or menu changes.
+
+## Building
+- `INNO\build_bleeps.bat` (publish to `INNO\build`), `build_bleeps_and_run.bat`, `build_bleeps_setup.bat` (publish + Inno
+  `bleeps.iss` + zip + sha256). `ensure_dotnet_sdk.bat` / `ensure_inno_setup.bat` are ShackAssistant's.
+- Measured in the scratchpad harness `bleepsapp` (19): a real `rigctld -m 1` on 127.0.0.1:45320 - connect, band button, typed
+  frequency and band, dial follows the radio, PTT on/off via CAT, a Bleeps message as audio in -> in the chat and the chat log,
+  the settings (305 Hamlib models, 14 frequencies). Never the real sound card or PTT; the harness cleans up `%APPDATA%\Bleeps` and
+  `Documents\Bleeps` (and refuses if they already exist).
+- Testing in the real app without touching PA5DJ's settings: start the build with `--rig CLAUDETEST` (seed
+  `%APPDATA%\Bleeps - CLAUDETEST\bleeps.ini` if needed, e.g. a radio on a non-existent COM port) and remove both
+  `Bleeps - CLAUDETEST` folders afterwards. Note: it listens on the default sound card (receive only).
