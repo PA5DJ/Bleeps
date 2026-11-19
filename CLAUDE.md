@@ -44,6 +44,9 @@ Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe 
 - `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`; sinds v1.0.3 staat hij `Program.SplashMs` (3 s) ALLEEN in beeld en verschijnt
   het hoofdvenster pas daarna - eerst opende dat er meteen overheen en leek de splash direct te sluiten), `Log.cs` (`Documenten\Bleeps\debug\Bleeps.log`), `Program.cs`.
 - Instellingen: `%APPDATA%\Bleeps\bleeps.ini`.
+- **`--rig NAAM`** (v1.0.8, zoals WSJT-X's `--rig-name`): `Instance.cs` - eigen `%APPDATA%\Bleeps - NAAM`, `Documenten\Bleeps - NAAM`,
+  mutex en titel. Een nieuwe plek die een map of een vaste naam gebruikt: neem `Instance.FolderName` / `Instance.Suffix`, nooit
+  "Bleeps" letterlijk, anders lopen de sessies door elkaar.
 
 ## Bouwen
 - `INNO\build_bleeps.bat` (publish naar `INNO\build`), `build_bleeps_and_run.bat`, `build_bleeps_setup.bat` (publish + Inno

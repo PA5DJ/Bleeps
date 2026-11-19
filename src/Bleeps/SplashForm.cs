@@ -23,7 +23,7 @@ internal sealed class SplashForm : Form
         int h = logo == null ? LogicalToDeviceUnits(200) : w * logo.Height / logo.Width;
         var pic = new PictureBox { Image = logo, SizeMode = PictureBoxSizeMode.Zoom, Dock = DockStyle.Fill };
         var line = new Label { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(24), TextAlign = ContentAlignment.MiddleCenter,
-                               Text = $"Bleeps {MainForm.Version}  -  starting…", ForeColor = Color.DimGray, Font = new Font("Segoe UI", 9) };
+                               Text = $"Bleeps {MainForm.Version}{Instance.Suffix}  -  starting…", ForeColor = Color.DimGray, Font = new Font("Segoe UI", 9) };
         ClientSize = new Size(w, h + line.Height);
         Controls.Add(pic);
         Controls.Add(line);

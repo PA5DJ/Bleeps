@@ -8,7 +8,7 @@ namespace ShackAssistant.Helpers;
 /// <summary>A small INI file: %APPDATA%\Bleeps\bleeps.ini. Same Get/Set as ShackAssistant's AppSettings.</summary>
 public class AppSettings
 {
-    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bleeps");
+    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Bleeps.Instance.FolderName);   // "Bleeps - IC9700" with --rig (v1.0.8)
     public static string ConfigFile => Path.Combine(Folder, "bleeps.ini");
 
     private readonly Dictionary<string, Dictionary<string, string>> _data = new(StringComparer.OrdinalIgnoreCase);

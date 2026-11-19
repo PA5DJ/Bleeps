@@ -13,7 +13,7 @@ public static class Log
         {
             var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if (string.IsNullOrEmpty(docs)) docs = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(docs, "Bleeps");
+            return Path.Combine(docs, Instance.FolderName);   // "Bleeps - IC9700" with --rig (v1.0.8)
         }
     }
 

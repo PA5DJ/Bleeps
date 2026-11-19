@@ -1,5 +1,16 @@
 # Bleeps Changelog
 
+## v1.0.8
+
+- **Meer Bleeps naast elkaar, zoals WSJT-X** (PA5DJ: *"met een flag op cli sessies naast elkaar willen kunnen starten zoals bij wsjtx
+  met --rig IC9700 etc. krijg dan zijn eigen appdata"*): `Bleeps.exe --rig IC9700` (ook `--rig=IC9700`, `--rig-name IC9700`,
+  `-r IC9700`) heeft zijn eigen instellingen (`%APPDATA%\Bleeps - IC9700`), log en chatlogs (`Documenten\Bleeps - IC9700`), een eigen
+  single-instance-slot en de naam in titel en splash. Zonder de vlag verandert er niets. Een naam die al draait zegt dat; de gewone
+  Bleeps noemt bij "already running" de vlag. Een nieuwe naam begint met lege instellingen (zoals WSJT-X).
+  `Instance.cs` (lezen + opschonen tot een mapnaam), gebruikt in `Shims.AppSettings.Folder`, `Log.DataFolder`, de mutex en de titels.
+  Gemeten: gewone Bleeps + `--rig TESTRIG` draaien samen, elk met eigen titel en mappen; een tweede `--rig=TESTRIG` weigert; de gewone
+  `bleeps.ini` byte voor byte terug, de testmappen weer weg.
+
 ## v1.0.7
 
 - **Settings > Radio: wat niet van toepassing is wordt grijs, opschrift en vak samen** (PA5DJ: *"items die niet van toepassing bij een

@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.7";
+    public const string Version = "v1.0.8";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -71,7 +71,7 @@ internal sealed class MainForm : Form
         SuspendLayout();
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Text = "Bleeps " + Version;
+        Text = "Bleeps " + Version + Instance.Suffix;
         Font = new Font("Segoe UI", 9);
         MinimumSize = new Size(820, 560);
         Size = new Size(1000, 760);
