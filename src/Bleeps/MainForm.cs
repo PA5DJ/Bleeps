@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.3";
+    public const string Version = "v1.0.4";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -39,12 +39,11 @@ internal sealed class MainForm : Form
 
     // audio, radio
     private WaveIn? _capture;
-    private SpectrumAnalyzer? _spectrum;
+    private BleepsWaterfall _wf = null!;   // the shared Bleeps waterfall (ShackAssistant's Forms\BleepsWaterfall.cs)
     private volatile float _inPeak;
     private RigControl? _rig;
     private RigState _rigState = new(false, 0, "", "No radio");
     private readonly System.Windows.Forms.Timer _ui = new() { Interval = 40 };
-    private bool _floorSet;
 
     // Bleeps
     private BleepsReceiver? _rx;
@@ -139,8 +138,8 @@ internal sealed class MainForm : Form
         driveHost.Controls.Add(driveLabel);
         wfHost.Controls.Add(_waterfall);
         wfHost.Controls.Add(driveHost);
-        wfHost.Controls.Add(BuildWaterfallBar());
-        _waterfall.Resize += (_, _) => ApplyWfRange(clear: false);
+        _wf = new BleepsWaterfall(_waterfall, _settings, "waterfall", "", _tips);
+        wfHost.Controls.Add(_wf.Bar);
         _waterfall.ShowCursor = false;
         _waterfall.CursorCommitted += hz => _panel.SetTxHz(hz - _panel.Speed.CenterOffset);   // a click: there we send
         _tips.SetToolTip(_waterfall, "Click where you want to send (the middle of your signal). The stations being read stand in their colour.");
@@ -169,7 +168,7 @@ internal sealed class MainForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        ApplyWfRange(clear: false);
+        _wf.SetActive(true);
         StartAudio();
         StartRig();
         StartRx();
@@ -324,8 +323,7 @@ internal sealed class MainForm : Form
     {
         _capture?.Dispose();
         _capture = null;
-        _spectrum = new SpectrumAnalyzer(WaveIn.SampleRate, WfFft, 1, historySeconds: 4);
-        _wfDone = 0; _wfCount = 0; _floorSet = false;
+        _wf.Reset();
         try
         {
             if (WaveIn.Devices().Count == 0) { _stAudio.Text = "No audio input"; return; }
@@ -351,7 +349,7 @@ internal sealed class MainForm : Form
         foreach (var v in s) { float a = Math.Abs(v); if (a > peak) peak = a; }
         _inPeak = Math.Max(_inPeak, peak);
         if (_tx.IsRunning && !Duplex) return;
-        _spectrum?.Add(s);
+        _wf.Add(s);
         var q = _rxIn;
         if (q == null || q.IsAddingCompleted) return;
         try { if (!q.TryAdd(s)) Log.Warn("Bleeps: receiver behind, audio dropped"); } catch (InvalidOperationException) { }
@@ -370,162 +368,7 @@ internal sealed class MainForm : Form
         if (_tx.IsRunning) _panel.SetProgress(_tx.PlayedSeconds, _tx.TotalSeconds);
         if (_tx.IsRunning && !Duplex) return;       // the waterfall holds still while we send
 
-        WaterfallStep();
-    }
-
-    // ── the waterfall, the way WSJT-X's Wide Graph builds it ──
-    // A LONG window: 65536 samples at 48 kHz = 1.37 s and 0.73 Hz a bin - the same as WSJT-X (16384 at 12 kHz). The four tones
-    // of Bleeps (21 Hz apart) then stand as four thin lines instead of one blob (4096 + Blackman-Harris smeared ~45 Hz).
-    // A new spectrum every 80 ms of audio (WSJT-X: every half symbol), WfAvg of them averaged in POWER into one row (WSJT-X
-    // "N Avg", default 5), and per pixel the power of ALL bins in it is added up (WSJT-X "Bins/Pixel") - never one bin picked.
-    internal const int WfFft = 65536, WfHop = 3840;
-    private int WfAvg => (int)_wfAvg.Value;
-    private long _wfDone;
-    private int _wfCount;
-    private double[] _wfAcc = Array.Empty<double>();
-    private double _wfPxHz;
-
-    /// <summary>From the timer: one spectrum per 80 ms of new audio; every WfAvg spectra a row.</summary>
-    internal void WaterfallStep()
-    {
-        var sp = _spectrum;
-        if (sp == null || !sp.HasFrame) return;
-        long total = sp.Total;
-        if (total - _wfDone < WfHop) return;
-        _wfDone = total;
-        int w = Math.Max(50, _waterfall.ClientSize.Width);
-        double pxHz = (_waterfall.MaxHz - _waterfall.MinHz) / w;
-        int n = (int)(_waterfall.MaxHz / pxHz) + 2;
-        if (_wfAcc.Length != n || Math.Abs(_wfPxHz - pxHz) > 1e-9) { _wfAcc = new double[n]; _wfCount = 0; _wfPxHz = pxHz; }
-
-        var db = sp.Frame();
-        double df = sp.HzPerBin;
-        for (int k = 0; k < n; k++)
-        {
-            int b0 = Math.Max(1, (int)Math.Ceiling((k - 0.5) * pxHz / df));
-            int b1 = Math.Min(db.Length - 1, (int)Math.Floor((k + 0.5) * pxHz / df));
-            double p = 0;
-            for (int b = b0; b <= b1; b++) p += Math.Pow(10, db[b] / 10.0);
-            _wfAcc[k] += p;
-        }
-        if (++_wfCount < WfAvg) return;
-
-        var row = new float[n];
-        for (int k = 0; k < n; k++) row[k] = (float)(10 * Math.Log10(Math.Max(_wfAcc[k] / _wfCount, 1e-20)));
-        Array.Clear(_wfAcc);
-        _wfCount = 0;
-        int last = n - 1;
-        NormaliseToLocalNoise(row, last, pxHz);
-        int lo = Math.Max(0, (int)(_waterfall.MinHz / pxHz));
-        var slice = row.AsSpan(lo, last - lo + 1).ToArray();
-        Array.Sort(slice);
-        float noise = slice[slice.Length / 2];
-        // The colours climb over WfSpanDb from just above the noise, like WSJT-X (Gain/Zero give it ~30 dB). The panel's own
-        // Skim curve starts 7 dB under FloorDb and runs CurveDb up; ShackAssistant's 11 dB made every Bleeps station white.
-        float wantFloor = noise + 7f + FloorAbove;
-        // the first row sets the floor outright: easing in from the panel's -95 dB painted the first seconds white
-        if (!_floorSet) { _waterfall.FloorDb = wantFloor; _floorSet = true; }
-        else _waterfall.FloorDb += (wantFloor - _waterfall.FloorDb) * 0.2f;
-        _waterfall.CurveDb = SpanDb;
-        _waterfall.AddFrame(row, pxHz);
-    }
-
-    /// <summary>Fields so a harness can set the colours directly; NaN = the Gain/Zero sliders.</summary>
-    internal float WfFloorAbove = float.NaN, WfSpanDb = float.NaN;
-    /// <summary>Zero, like WSJT-X: right = brighter. -50..50 moves where the colours start from +10 to -10 dB above the noise.</summary>
-    private float FloorAbove => float.IsNaN(WfFloorAbove) ? -_wfZero.Value * 0.2f : WfFloorAbove;
-    /// <summary>Gain, like WSJT-X: right = more contrast. Every step multiplies by 10^0.015 (WSJT-X's own step); 0 = 30 dB.</summary>
-    private float SpanDb => float.IsNaN(WfSpanDb) ? (float)Math.Clamp(30 / Math.Pow(10, 0.015 * _wfGain.Value), 5, 80) : WfSpanDb;
-
-    // ── the waterfall controls, as on WSJT-X's Wide Graph: Bins/Pixel, Start, N Avg (the speed), Gain, Zero ──
-    private readonly NumericUpDown _wfBpp = new() { Minimum = 1, Maximum = 10, Width = 48 };
-    private readonly NumericUpDown _wfStart = new() { Minimum = 0, Maximum = 4000, Increment = 50, Width = 64 };
-    private readonly NumericUpDown _wfAvg = new() { Minimum = 1, Maximum = 20, Width = 48 };
-    private readonly TrackBar _wfGain = new() { Minimum = -50, Maximum = 50, TickFrequency = 10, Width = 120, AutoSize = false, Height = 26 };
-    private readonly TrackBar _wfZero = new() { Minimum = -50, Maximum = 50, TickFrequency = 10, Width = 120, AutoSize = false, Height = 26 };
-    private const double BinHz = 48000.0 / WfFft;     // 0.732 Hz, WSJT-X's df3
-
-    private Control BuildWaterfallBar()
-    {
-        _wfBpp.Value = Math.Clamp(_settings.GetInt("waterfall", "bpp", 4), 1, 10);
-        _wfStart.Value = Math.Clamp(_settings.GetInt("waterfall", "start", 100), 0, 4000);
-        _wfAvg.Value = Math.Clamp(_settings.GetInt("waterfall", "avg", 5), 1, 20);
-        _wfGain.Value = Math.Clamp(_settings.GetInt("waterfall", "gain", 0), -50, 50);
-        _wfZero.Value = Math.Clamp(_settings.GetInt("waterfall", "zero", 0), -50, 50);
-        var bar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 30, WrapContents = false, Padding = new Padding(0, 2, 0, 0) };
-        Label L(string t) => new() { Text = t, AutoSize = true, Margin = new Padding(8, 6, 2, 0) };
-        void Add(string label, Control c, string tip)
-        {
-            var l = L(label);
-            c.Margin = new Padding(0, 2, 4, 0);
-            bar.Controls.Add(l); bar.Controls.Add(c);
-            _tips.SetToolTip(l, tip); _tips.SetToolTip(c, tip);
-        }
-        Add("Bins/Pixel", _wfBpp, "How many 0.73 Hz bins go into one pixel (WSJT-X: Bins/Pixel). 1 = the finest; higher shows more of the band. The width of the window decides how far it reaches.");
-        Add("Start", _wfStart, "The lowest audio frequency on the left, in Hz (WSJT-X: Start).");
-        Add("N Avg", _wfAvg, "The speed of the waterfall (WSJT-X: N Avg): how many spectra (one per 80 ms) are averaged into one line. Lower = faster and more speckle; higher = slower and calmer. 5 = a line every 0.4 s.");
-        Add("Gain", _wfGain, "Contrast (WSJT-X: Gain): to the right the colours climb faster, so weaker signals already look bright.");
-        Add("Zero", _wfZero, "Brightness (WSJT-X: Zero): to the right the whole picture gets brighter, the noise too.");
-        _wfBpp.ValueChanged += (_, _) => { _settings.Set("waterfall", "bpp", (int)_wfBpp.Value); ApplyWfRange(clear: true); };
-        _wfStart.ValueChanged += (_, _) => { _settings.Set("waterfall", "start", (int)_wfStart.Value); ApplyWfRange(clear: true); };
-        _wfAvg.ValueChanged += (_, _) => { _settings.Set("waterfall", "avg", (int)_wfAvg.Value); Array.Clear(_wfAcc); _wfCount = 0; };
-        _wfGain.ValueChanged += (_, _) => _settings.Set("waterfall", "gain", _wfGain.Value);
-        _wfZero.ValueChanged += (_, _) => _settings.Set("waterfall", "zero", _wfZero.Value);
-        _wfLabel = new Label { AutoSize = true, Margin = new Padding(10, 6, 0, 0), ForeColor = Color.DimGray };
-        bar.Controls.Add(_wfLabel);
-        return bar;
-    }
-    private Label? _wfLabel;
-
-    /// <summary>The range the waterfall shows: Start up to Start + width x Bins/Pixel x 0.73 Hz (at most 6 kHz), as in WSJT-X.</summary>
-    private void ApplyWfRange(bool clear)
-    {
-        int w = Math.Max(50, _waterfall.ClientSize.Width);
-        double lo = (double)_wfStart.Value;
-        double hi = Math.Min(6000, lo + w * (double)_wfBpp.Value * BinHz);
-        if (hi <= lo + 50) hi = lo + 50;
-        if (lo >= _waterfall.MaxHz) { _waterfall.MaxHz = hi; _waterfall.MinHz = lo; }
-        else { _waterfall.MinHz = lo; _waterfall.MaxHz = hi; }
-        if (clear) _waterfall.Clear();
-        if (_wfLabel != null) _wfLabel.Text = string.Create(CultureInfo.InvariantCulture, $"{lo:0}-{hi:0} Hz, {(hi - lo) / w:0.00} Hz/px");
-    }
-
-    private float[] _profDb = new float[32], _chunk = new float[256];
-    private int[] _profAt = new int[32];
-
-    /// <summary>The noise ACROSS frequency taken off (ShackAssistant's CwWindow): "dB above the noise right here".</summary>
-    private void NormaliseToLocalNoise(float[] db, int lastBin, double hzPerBin)
-    {
-        int n = lastBin + 1;
-        if (n < 64) return;
-        int per = Math.Max(16, (int)(250.0 / Math.Max(0.5, hzPerBin)));
-        int count = (n + per - 1) / per;
-        if (count < 2) return;
-        if (_profDb.Length < count) { _profDb = new float[count]; _profAt = new int[count]; }
-        if (_chunk.Length < per) _chunk = new float[per];
-        for (int c = 0, a = 0; a < n; c++, a += per)
-        {
-            int len = Math.Min(per, n - a);
-            Array.Copy(db, a, _chunk, 0, len);
-            Array.Sort(_chunk, 0, len);
-            _profDb[c] = _chunk[len / 2];
-            _profAt[c] = a + len / 2;
-        }
-        for (int i = 0; i < n; i++)
-        {
-            float f;
-            if (i <= _profAt[0]) f = _profDb[0];
-            else if (i >= _profAt[count - 1]) f = _profDb[count - 1];
-            else
-            {
-                int k = 1;
-                while (k < count - 1 && _profAt[k] < i) k++;
-                int x0 = _profAt[k - 1], x1 = _profAt[k];
-                float t = x1 == x0 ? 0f : (float)(i - x0) / (x1 - x0);
-                f = _profDb[k - 1] + (_profDb[k] - _profDb[k - 1]) * t;
-            }
-            db[i] -= f;
-        }
+        _wf.Step();
     }
 
     // ── receiving (CwWindow.Bleeps.cs) ──

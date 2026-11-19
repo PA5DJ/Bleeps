@@ -1,5 +1,9 @@
 # Bleeps Changelog
 
+## v1.0.4
+
+- De waterval is nu het GEDEELDE `Forms/BleepsWaterfall.cs` van ShackAssistant (dat Mode Master in Bleeps sinds v1.0.747 ook gebruikt): zelfde beeld en bediening in beide programma's, een kopie van de code.
+
 ## v1.0.3
 
 - De splash blijft 3 s alleen in beeld; het hoofdvenster verschijnt pas daarna (PA5DJ: hij verdween meteen - het hoofdvenster opende eroverheen).

@@ -9,8 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Bleeps</AssemblyName>
     <RootNamespace>Bleeps</RootNamespace>
-    <AssemblyVersion>1.0.3.0</AssemblyVersion>
-    <FileVersion>1.0.3.0</FileVersion>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
     <Company>PA5DJ</Company>
     <Product>Bleeps</Product>
     <Copyright>PA5DJ</Copyright>
@@ -34,6 +34,7 @@
     <Compile Include="$(SaSrc)Forms\WaterfallPanel.cs" Link="Shared\WaterfallPanel.cs" />
     <Compile Include="$(SaSrc)Forms\BleepsPanel.cs" Link="Shared\BleepsPanel.cs" />
     <Compile Include="$(SaSrc)Forms\BleepsSettingsForm.cs" Link="Shared\BleepsSettingsForm.cs" />
+    <Compile Include="$(SaSrc)Forms\BleepsWaterfall.cs" Link="Shared\BleepsWaterfall.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -13,7 +13,8 @@ in de csproj + een sectie in `CHANGELOG.md`; bump bij elke wijziging en commit d
 De csproj LINKT deze bestanden uit `..\ShackAssistant\src\ShackAssistant\` (`$(SaSrc)`):
 - het protocol: `Helpers\Audio\Bleeps\BleepsCode.cs`, `BleepsModem.cs`, `BleepsReceiver.cs`, `BleepsEmoji.cs` (+ de Twemoji-PNG's);
 - `Helpers\Audio\Fft.cs`, `SpectrumAnalyzer.cs`, `Helpers\HamlibNative.cs`;
-- `Forms\WaterfallPanel.cs`, `Forms\BleepsPanel.cs` (chat + TX-regel), `Forms\BleepsSettingsForm.cs`.
+- `Forms\WaterfallPanel.cs`, `Forms\BleepsPanel.cs` (chat + TX-regel), `Forms\BleepsSettingsForm.cs`, en sinds v1.0.4
+  `Forms\BleepsWaterfall.cs` (de waterval zoals WSJT-X + zijn balk; Mode Master gebruikt hem in Bleeps sinds SA v1.0.747).
 EEN kopie van het protocol: anders lopen de twee programma's uit elkaar en decoderen ze elkaar niet meer.
 **Een wijziging in die bestanden in ShackAssistant moet hier ook bouwen.** Wat ze van ShackAssistant aanroepen
 (`AppSettings`, `AppTheme`, `UITheme`) staat nagebouwd in `Shims.cs` (zelfde namen en leden, namespace `ShackAssistant.Helpers`).
@@ -24,7 +25,7 @@ Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe 
   (een per band uit de frequentielijst, meer frequenties op een band = een menuutje; de band van de radio oranje), chat, waterval met
   TX-drive (demping in dB, `[audio] tx_atten`). De ontvang/zend-lijm is die van `CwWindow.Bleeps.cs` van ShackAssistant
   (ontvanger op een eigen draad, wachtrij, chatlog `Documenten\Bleeps\chat\JJJJ-MM-DD.txt`, eigen echo bij full duplex).
-- **De waterval zoals WSJT-X** (v1.0.1, PA5DJ: *"het moet echt richting de resolutie van wsjtx"*): `MainForm.WaterfallStep`
+- **De waterval zoals WSJT-X** (v1.0.1; sinds v1.0.4 staat de code in het gedeelde `BleepsWaterfall.cs`, INI hier `[waterfall]` zonder voorvoegsel, PA5DJ: *"het moet echt richting de resolutie van wsjtx"*): `MainForm.WaterfallStep`
   - venster 65536 op 48 kHz (= 16384 op 12 kHz, 0,73 Hz), elke `WfHop` (3840 = 80 ms) nieuwe audio een spectrum, `[waterfall] avg`
   (5) ervan in VERMOGEN gemiddeld per rij, per pixel alle bins opgeteld (nooit een bin kiezen). Kleur: `FloorDb` = ruis + 7 + `floor`
   (0), `CurveDb` = `span` (30) - de Skim-curve van `WaterfallPanel` begint 7 dB onder FloorDb; met de 11 dB van ShackAssistant werd
