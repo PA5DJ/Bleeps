@@ -24,6 +24,11 @@ Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe 
   (een per band uit de frequentielijst, meer frequenties op een band = een menuutje; de band van de radio oranje), chat, waterval met
   TX-drive (demping in dB, `[audio] tx_atten`). De ontvang/zend-lijm is die van `CwWindow.Bleeps.cs` van ShackAssistant
   (ontvanger op een eigen draad, wachtrij, chatlog `Documenten\Bleeps\chat\JJJJ-MM-DD.txt`, eigen echo bij full duplex).
+- **De waterval zoals WSJT-X** (v1.0.1, PA5DJ: *"het moet echt richting de resolutie van wsjtx"*): `MainForm.WaterfallStep`
+  - venster 65536 op 48 kHz (= 16384 op 12 kHz, 0,73 Hz), elke `WfHop` (3840 = 80 ms) nieuwe audio een spectrum, `[waterfall] avg`
+  (5) ervan in VERMOGEN gemiddeld per rij, per pixel alle bins opgeteld (nooit een bin kiezen). Kleur: `FloorDb` = ruis + 7 + `floor`
+  (0), `CurveDb` = `span` (30) - de Skim-curve van `WaterfallPanel` begint 7 dB onder FloorDb; met de 11 dB van ShackAssistant werd
+  elk station wit. CeilingDb doet in deze stand niets. Gemeten in scratchpad `bleepswf` (nep-band: -10/0/+10 dB Bleeps + draaggolf).
 - `Rig.cs` - `RigConfig` (EEN radio, `[radio]` in de INI) en `RigControl`: Hamlib op EEN eigen draad met een wachtrij (Hamlib is niet
   thread-safe). Model 2 = rigctld, 4 = FLRig (poort `host:port`); geen radio + PTT RTS/DTR = Hamlibs dummy-rig met alleen de PTT-poort.
   `SetPtt` WACHT tot het gedaan is (de audio start na PTT). Mode bij afstemmen: None / USB / Data (PKTUSB).

@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.0";
+    public const string Version = "v1.0.1";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -43,8 +43,7 @@ internal sealed class MainForm : Form
     private volatile float _inPeak;
     private RigControl? _rig;
     private RigState _rigState = new(false, 0, "", "No radio");
-    private readonly System.Windows.Forms.Timer _ui = new() { Interval = 60 };
-    private float _ceilDb = float.NaN;
+    private readonly System.Windows.Forms.Timer _ui = new() { Interval = 40 };
     private bool _floorSet;
 
     // Bleeps
@@ -322,7 +321,8 @@ internal sealed class MainForm : Form
     {
         _capture?.Dispose();
         _capture = null;
-        _spectrum = new SpectrumAnalyzer(WaveIn.SampleRate, 4096, 2, historySeconds: 5);
+        _spectrum = new SpectrumAnalyzer(WaveIn.SampleRate, WfFft, 1, historySeconds: 4);
+        _wfDone = 0; _wfCount = 0; _floorSet = false;
         try
         {
             if (WaveIn.Devices().Count == 0) { _stAudio.Text = "No audio input"; return; }
@@ -367,25 +367,71 @@ internal sealed class MainForm : Form
         if (_tx.IsRunning) _panel.SetProgress(_tx.PlayedSeconds, _tx.TotalSeconds);
         if (_tx.IsRunning && !Duplex) return;       // the waterfall holds still while we send
 
+        WaterfallStep();
+    }
+
+    // ── the waterfall, the way WSJT-X's Wide Graph builds it ──
+    // A LONG window: 65536 samples at 48 kHz = 1.37 s and 0.73 Hz a bin - the same as WSJT-X (16384 at 12 kHz). The four tones
+    // of Bleeps (21 Hz apart) then stand as four thin lines instead of one blob (4096 + Blackman-Harris smeared ~45 Hz).
+    // A new spectrum every 80 ms of audio (WSJT-X: every half symbol), WfAvg of them averaged in POWER into one row (WSJT-X
+    // "N Avg", default 5), and per pixel the power of ALL bins in it is added up (WSJT-X "Bins/Pixel") - never one bin picked.
+    internal const int WfFft = 65536, WfHop = 3840;
+    private int WfAvg => Math.Clamp(_settings.GetInt("waterfall", "avg", 5), 1, 20);
+    private long _wfDone;
+    private int _wfCount;
+    private double[] _wfAcc = Array.Empty<double>();
+    private double _wfPxHz;
+
+    /// <summary>From the timer: one spectrum per 80 ms of new audio; every WfAvg spectra a row.</summary>
+    internal void WaterfallStep()
+    {
         var sp = _spectrum;
         if (sp == null || !sp.HasFrame) return;
+        long total = sp.Total;
+        if (total - _wfDone < WfHop) return;
+        _wfDone = total;
+        int w = Math.Max(50, _waterfall.ClientSize.Width);
+        double pxHz = (_waterfall.MaxHz - _waterfall.MinHz) / w;
+        int n = (int)(_waterfall.MaxHz / pxHz) + 2;
+        if (_wfAcc.Length != n || Math.Abs(_wfPxHz - pxHz) > 1e-9) { _wfAcc = new double[n]; _wfCount = 0; _wfPxHz = pxHz; }
+
         var db = sp.Frame();
-        int last = Math.Min(db.Length - 1, sp.HzToBin(_waterfall.MaxHz));
-        NormaliseToLocalNoise(db, last, sp.HzPerBin);
-        _waterfall.AddFrame(db, sp.HzPerBin);
-        var slice = new float[last + 1];
-        Array.Copy(db, slice, slice.Length);
+        double df = sp.HzPerBin;
+        for (int k = 0; k < n; k++)
+        {
+            int b0 = Math.Max(1, (int)Math.Ceiling((k - 0.5) * pxHz / df));
+            int b1 = Math.Min(db.Length - 1, (int)Math.Floor((k + 0.5) * pxHz / df));
+            double p = 0;
+            for (int b = b0; b <= b1; b++) p += Math.Pow(10, db[b] / 10.0);
+            _wfAcc[k] += p;
+        }
+        if (++_wfCount < WfAvg) return;
+
+        var row = new float[n];
+        for (int k = 0; k < n; k++) row[k] = (float)(10 * Math.Log10(Math.Max(_wfAcc[k] / _wfCount, 1e-20)));
+        Array.Clear(_wfAcc);
+        _wfCount = 0;
+        int last = n - 1;
+        NormaliseToLocalNoise(row, last, pxHz);
+        int lo = Math.Max(0, (int)(_waterfall.MinHz / pxHz));
+        var slice = row.AsSpan(lo, last - lo + 1).ToArray();
         Array.Sort(slice);
         float noise = slice[slice.Length / 2];
-        float wantFloor = noise + 10f;
-        // the first frame sets the floor outright: easing in from the panel's -95 dB painted the first seconds white
+        // The colours climb over WfSpanDb from just above the noise, like WSJT-X (Gain/Zero give it ~30 dB). The panel's own
+        // Skim curve starts 7 dB under FloorDb and runs CurveDb up; ShackAssistant's 11 dB made every Bleeps station white.
+        float wantFloor = noise + 7f + FloorAbove;
+        // the first row sets the floor outright: easing in from the panel's -95 dB painted the first seconds white
         if (!_floorSet) { _waterfall.FloorDb = wantFloor; _floorSet = true; }
-        else _waterfall.FloorDb += (wantFloor - _waterfall.FloorDb) * 0.10f;
-        float wantCeil = Math.Clamp(slice[^1], _waterfall.FloorDb + 15f, _waterfall.FloorDb + 75f);
-        if (float.IsNaN(_ceilDb)) _ceilDb = wantCeil;
-        _ceilDb += (wantCeil - _ceilDb) * (wantCeil > _ceilDb ? 0.35f : 0.03f);
-        _waterfall.CeilingDb = _ceilDb;
+        else _waterfall.FloorDb += (wantFloor - _waterfall.FloorDb) * 0.2f;
+        _waterfall.CurveDb = SpanDb;
+        _waterfall.AddFrame(row, pxHz);
     }
+
+    /// <summary>[waterfall] floor (dB above the noise where the colours start, default 0) and span (dB over which they climb,
+    /// default 30 - about what WSJT-X's Gain/Zero give). Kept in the INI; fields so a harness can set them.</summary>
+    internal float WfFloorAbove = float.NaN, WfSpanDb = float.NaN;
+    private float FloorAbove => float.IsNaN(WfFloorAbove) ? (float)Math.Clamp(_settings.GetDouble("waterfall", "floor", 0), -10, 20) : WfFloorAbove;
+    private float SpanDb => float.IsNaN(WfSpanDb) ? (float)Math.Clamp(_settings.GetDouble("waterfall", "span", 30), 5, 80) : WfSpanDb;
 
     private float[] _profDb = new float[32], _chunk = new float[256];
     private int[] _profAt = new int[32];
