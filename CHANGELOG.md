@@ -1,5 +1,15 @@
 # Bleeps Changelog
 
+## v1.0.20
+
+- **Dark mode** (PA5DJ: *"make dark mode in Bleeps"*). Settings > Station > **Theme**: System (follows Windows' app mode,
+  the default), Light or Dark - `[display] theme` in the INI, applied at start (a change says it takes effect at the next
+  start). Built on WinForms' own colour mode (`Application.SetColorMode`, set in `Program.Main` before the first window), so
+  title bar, menus, buttons, text boxes, lists, tabs and the status bar follow by themselves; the shared chat panel reads
+  `AppTheme.IsDark` (now real instead of always false) for its own colours. Fixed by hand: the orange band button keeps
+  black text, the "SAT / RX" label a lighter blue in dark, and the frequency grid's header no longer stays light.
+  Checked in a test instance: main window, File menu, Settings (Station, Frequencies) dark; Light looks as before.
+
 ## v1.0.19
 
 - **The TX marker is in the waterfall from the start** (PA5DJ: *"when the app starts I don't see the TX marker"*). The markers

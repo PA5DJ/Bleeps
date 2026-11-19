@@ -99,10 +99,29 @@ public class AppSettings
     }
 }
 
-/// <summary>Light theme only: the colours the shared chat panel asks for.</summary>
+/// <summary>
+/// Light or dark (v1.0.20): WinForms' own colour mode (<c>Application.SetColorMode</c>), so SystemColors - and every control
+/// that uses them - turn dark by themselves; the shared chat panel asks <see cref="IsDark"/> for its own colours.
+/// </summary>
 public static class AppTheme
 {
-    public static bool IsDark => false;
+    public static readonly string[] Choices = { "System", "Light", "Dark" };
+
+    /// <summary>Call once, before the first window: "System" follows Windows (Settings -> Personalisation -> Colours).</summary>
+    public static void ApplyAtStart(string choice)
+    {
+#pragma warning disable WFO5001   // the colour mode API is marked experimental
+        var mode = choice.Equals("Dark", StringComparison.OrdinalIgnoreCase) ? SystemColorMode.Dark
+                 : choice.Equals("Light", StringComparison.OrdinalIgnoreCase) ? SystemColorMode.Classic
+                 : SystemColorMode.System;
+        try { Application.SetColorMode(mode); }
+        catch (Exception ex) { Bleeps.Log.Warn("Colour mode: " + ex.Message); }
+#pragma warning restore WFO5001
+    }
+
+#pragma warning disable WFO5001
+    public static bool IsDark => Application.IsDarkModeEnabled;
+#pragma warning restore WFO5001
     public static Color Field => SystemColors.Window;
     public static Color Face => SystemColors.Control;
 }

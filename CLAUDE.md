@@ -83,6 +83,10 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
   (3 s) and the main window appears only after it - before, that opened on top of it at once and the splash seemed to close
   immediately), `Log.cs` (`Documents\Bleeps\debug\Bleeps.log`), `Program.cs`.
 - Settings: `%APPDATA%\Bleeps\bleeps.ini`.
+- **Dark mode** (v1.0.20): `[display] theme` = System / Light / Dark -> `AppTheme.ApplyAtStart` in `Program.Main` before the
+  first window (`Application.SetColorMode`, experimental API: `#pragma warning disable WFO5001`). Use SystemColors for anything
+  that should follow the theme; a fixed colour needs a dark counterpart (`AppTheme.IsDark`). DataGridView headers need
+  `EnableHeadersVisualStyles = false` + own header colours, or they stay light.
 - **`--rig NAME`** (v1.0.8, like WSJT-X's `--rig-name`): `Instance.cs` - its own `%APPDATA%\Bleeps - NAME`,
   `Documents\Bleeps - NAME`, mutex and title. A new place that uses a folder or a fixed name: take `Instance.FolderName` /
   `Instance.Suffix`, never "Bleeps" literally, or the sessions get mixed up.

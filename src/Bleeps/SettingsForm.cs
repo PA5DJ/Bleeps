@@ -9,6 +9,7 @@ internal sealed class SettingsForm : Form
 {
     private readonly AppSettings _s;
     private readonly TextBox _call = new() { Width = 120, CharacterCasing = CharacterCasing.Upper };
+    private readonly ComboBox _theme = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
     private readonly ComboBox _in = Drop(320), _out = Drop(320);
     private readonly ComboBox _model = new() { Width = 320, DropDownStyle = ComboBoxStyle.DropDown, AutoCompleteMode = AutoCompleteMode.SuggestAppend, AutoCompleteSource = AutoCompleteSource.ListItems };
     private readonly ComboBox _port = new() { Width = 180, DropDownStyle = ComboBoxStyle.DropDown };
@@ -28,6 +29,11 @@ internal sealed class SettingsForm : Form
         Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToResizeRows = false, RowHeadersVisible = false,
         SelectionMode = DataGridViewSelectionMode.FullRowSelect, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         BackgroundColor = SystemColors.Window,
+        // own header colours: with the visual style the header stays light in dark mode (v1.0.20)
+        EnableHeadersVisualStyles = false,
+        ColumnHeadersDefaultCellStyle = { BackColor = SystemColors.Control, ForeColor = SystemColors.ControlText,
+                                          SelectionBackColor = SystemColors.Control, SelectionForeColor = SystemColors.ControlText },
+        GridColor = SystemColors.ControlDark,
     };
     private readonly ToolTip _tips = new() { AutoPopDelay = 20000 };
 
@@ -109,6 +115,8 @@ internal sealed class SettingsForm : Form
     {
         var t = Grid();
         Row(t, "Callsign:", _call, "Your callsign. It goes out at the start of every message (the header of Bleeps is the call).");
+        _theme.Items.AddRange(AppTheme.Choices);
+        Row(t, "Theme:", _theme, "System follows Windows (Settings -> Personalisation -> Colours -> app mode); Light or Dark always. Takes effect when Bleeps starts again.");
         return t;
     }
 
@@ -275,6 +283,7 @@ internal sealed class SettingsForm : Form
     private void FillValues()
     {
         _call.Text = _s.Get("station", "callsign", "");
+        _theme.SelectedItem = AppTheme.Choices.FirstOrDefault(c => c.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase)) ?? "System";
         int i = _s.GetInt("audio", "input", 0), o = _s.GetInt("audio", "output", 0);
         if (_in.Items.Count > 0) _in.SelectedIndex = Math.Clamp(i, 0, _in.Items.Count - 1);
         if (_out.Items.Count > 0) _out.SelectedIndex = Math.Clamp(o, 0, _out.Items.Count - 1);
@@ -297,6 +306,12 @@ internal sealed class SettingsForm : Form
     private void Save()
     {
         _s.Set("station", "callsign", _call.Text.Trim().ToUpperInvariant());
+        string theme = _theme.SelectedItem as string ?? "System";
+        if (!theme.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase))
+        {
+            _s.Set("display", "theme", theme);
+            MessageBox.Show(this, $"The theme ({theme}) takes effect when Bleeps starts again.", "Bleeps", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
         _s.Set("audio", "input", Math.Max(0, _in.SelectedIndex));
         _s.Set("audio", "output", Math.Max(0, _out.SelectedIndex));
         var model = _model.SelectedItem as RigEntry

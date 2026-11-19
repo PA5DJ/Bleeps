@@ -15,6 +15,9 @@ internal static class Program
             return;
         }
         ApplicationConfiguration.Initialize();
+        // Dark mode (v1.0.20, PA5DJ: "make dark mode in Bleeps"): WinForms' own colour mode, set before the first window.
+        // [display] theme = System (follow Windows) / Light / Dark. A change takes effect at the next start.
+        ShackAssistant.Helpers.AppTheme.ApplyAtStart(new ShackAssistant.Helpers.AppSettings().Get("display", "theme", "System"));
         Application.ThreadException += (_, e) => { Log.Exception("UI", e.Exception); MessageBox.Show(e.Exception.Message, "Bleeps", MessageBoxButtons.OK, MessageBoxIcon.Error); };
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error("Unhandled: " + e.ExceptionObject);
         Log.Info($"Bleeps {MainForm.Version} starting" + (Instance.Name.Length > 0 ? $" as '{Instance.Name}' (--rig)" : ""));

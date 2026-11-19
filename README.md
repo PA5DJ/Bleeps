@@ -70,6 +70,7 @@ Open with **File -> Settings...**.
 | Setting | What it does |
 |---|---|
 | **Callsign** | Goes out at the start of every message, so the others see who is talking. |
+| **Theme** | **System** follows Windows (Settings -> Personalisation -> Colours -> app mode), or always **Light** or **Dark**. Takes effect when Bleeps starts again. |
 | **Audio input** | The sound card input that carries the radio's receive audio. |
 | **Audio output** | The sound card output that goes to the radio's data/mic input. |
 

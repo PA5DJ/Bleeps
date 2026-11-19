@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.19";
+    public const string Version = "v1.0.20";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -26,7 +26,7 @@ internal sealed class MainForm : Form
     private readonly Label _mode = new() { AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), Margin = new Padding(8, 14, 0, 0) };
     // satellite mode: "SAT" and the downlink (MAIN) under it; the dial is then the uplink (SUB)
     private readonly Label _sat = new() { AutoSize = true, Font = new Font("Consolas", 10, FontStyle.Bold), Margin = new Padding(10, 6, 0, 0),
-                                          ForeColor = Color.FromArgb(0, 120, 215), Visible = false };
+                                          ForeColor = AppTheme.IsDark ? Color.FromArgb(110, 180, 255) : Color.FromArgb(0, 120, 215), Visible = false };
     private readonly FlowLayoutPanel _bandButtons = new() { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(4, 0, 4, 4) };
 
     // chat + waterfall
@@ -327,6 +327,7 @@ internal sealed class MainForm : Form
         {
             bool on = (c.Tag as string) == band;
             c.BackColor = on ? Color.FromArgb(255, 200, 60) : SystemColors.Control;
+            c.ForeColor = on ? Color.Black : SystemColors.ControlText;   // dark text on the orange, also in dark mode
             c.Font = new Font(Font, on ? FontStyle.Bold : FontStyle.Regular);
         }
     }
