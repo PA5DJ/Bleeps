@@ -9,8 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Bleeps</AssemblyName>
     <RootNamespace>Bleeps</RootNamespace>
-    <AssemblyVersion>1.0.17.0</AssemblyVersion>
-    <FileVersion>1.0.17.0</FileVersion>
+    <AssemblyVersion>1.0.18.0</AssemblyVersion>
+    <FileVersion>1.0.18.0</FileVersion>
     <Company>PA5DJ</Company>
     <Product>Bleeps</Product>
     <Copyright>PA5DJ</Copyright>

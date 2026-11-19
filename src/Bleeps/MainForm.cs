@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.17";
+    public const string Version = "v1.0.18";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -120,8 +120,9 @@ internal sealed class MainForm : Form
         bar.Controls.Add(_dial);
         bar.Controls.Add(_mode);
         bar.Controls.Add(_sat);
-        _tips.SetToolTip(_sat, "Satellite mode: the dial is TX = SUB (uplink), RX = MAIN (downlink). Each is read while it is the selected band on the radio, "
-                             + "so a band that is not selected shows its last value. Bleeps never selects a band and does not tune in satellite mode.");
+        _tips.SetToolTip(_sat, "Satellite mode: the dial is TX = SUB (uplink), RX = MAIN (downlink). The selected band is read at every poll; the other one every 2 s "
+                             + "by selecting it for a moment (the band marker on the radio blinks) and selecting yours again - never while sending. "
+                             + "Bleeps does not tune in satellite mode.");
         _tips.SetToolTip(_band, "The band, as in WSJT-X: pick a frequency from the list (Settings -> Frequencies), or type one in MHz (14.071) or a band (20m) and press Enter.");
         _tips.SetToolTip(_dial, "The dial frequency of the radio. Red: the radio does not answer.");
         _band.SelectionChangeCommitted += (_, _) => { if (_band.SelectedItem is FrequencyEntry e) Tune(e.MHz); };
@@ -250,7 +251,7 @@ internal sealed class MainForm : Form
         _dial.BackColor = !rig || s.Connected ? Color.Black : Color.FromArgb(150, 0, 0);
         _mode.Text = s.Connected ? (s.Sat ? "TX " : "") + s.Mode : "";
         _sat.Visible = s.Connected && s.Sat;
-        if (_sat.Visible) _sat.Text = "SAT\nRX " + (s.RxHz > 0 ? Bands.FormatDial(s.RxHz) : "(select MAIN)");
+        if (_sat.Visible) _sat.Text = "SAT\nRX " + (s.RxHz > 0 ? Bands.FormatDial(s.RxHz) : "...");
         _stRig.Text = rig ? $"{_rig?.Describe()}: {s.Status}" : s.Status;
         if (known && !_band.DroppedDown && !_band.Focused)
         {

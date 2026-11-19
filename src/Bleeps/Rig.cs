@@ -204,8 +204,8 @@ public sealed class RigControl : IDisposable
     // ── satellite mode (v1.0.17, ShackAssistant's PLAN-SAT9700 / SA v1.0.753-755, measured on PA5DJ's IC-9700) ──
     // In satellite mode the IC-9700 refuses 0x25/0x26 (NG); 0x03 reads the SELECTED band and 07 D2 says which: 00 = MAIN =
     // downlink (RX), 01 = SUB = uplink (TX). 1C 03 is NOT the transmit frequency there (it is the selected band too), and nothing
-    // reads the band that is not selected. So: TX = SUB as last read while SUB was selected, RX = MAIN as last read while MAIN
-    // was selected. NEVER select a band or VFO to read (07 D0/D1/B0, 07 00/01, Hamlib's VFO_SUB/VFO_TX).
+    // reads the band that is not selected. So: the selected band every poll, the other one every 2 s by selecting it for a
+    // moment (ReadOtherBand, v1.0.18) and always selecting the operator's band again. Never 07 B0 (swap MAIN/SUB).
     private bool _satMode, _satAsked, _satWarned;
     private byte _civAddr;
     private double _satSubHz, _satMainHz;
@@ -273,17 +273,125 @@ public sealed class RigControl : IDisposable
         if (_civAddr == 0) return -1;
         var ask = new byte[] { 0xFE, 0xFE, _civAddr, 0xE0, 0x07, 0xD2, 0xFD };
         var all = new List<byte>();
-        SendRawRead(ask, all);
+        SendRawRead(ask, all, _civEcho ? ask.Length + 8 : 0);
         int band = SelectedBandIn(all, _civAddr);
         // a bus that echoes: the first FD was our own frame - once more, echo + answer in one read
         if (band < 0 && all.Count >= ask.Length && all.Take(ask.Length).SequenceEqual(ask))
         {
+            _civEcho = true;
             SendRawRead(ask, all, exactLength: ask.Length + 8);
             band = SelectedBandIn(all, _civAddr);
         }
         raw = all.Count == 0 ? "nothing" : Convert.ToHexString(all.ToArray());
         return band;
     }
+
+    /// <summary>
+    /// One CI-V command, raw: the radio's ANSWER (what stands between "FE FE E0 addr" and FD), or null. Our own echo and frames
+    /// the radio sends of its own (CI-V Transceive, to address 00) are skipped. On a bus that echoes, the first read ends at the
+    /// echo's FD; then once more, echo + answer in one read of <paramref name="answerLen"/> + the echo.
+    /// </summary>
+    private byte[]? Civ(byte[] body, int answerLen)
+    {
+        if (_civAddr == 0) return null;
+        var ask = new byte[] { 0xFE, 0xFE, _civAddr, 0xE0 }.Concat(body).Append((byte)0xFD).ToArray();
+        var all = new List<byte>();
+        // once the bus is known to echo, echo + answer in ONE read - every command goes out once (a band select sent twice
+        // made the band marker blink twice as long)
+        SendRawRead(ask, all, _civEcho ? ask.Length + answerLen : 0);
+        var a = AnswerIn(all, _civAddr, body[0]);
+        if (a == null && all.Count >= ask.Length && all.Take(ask.Length).SequenceEqual(ask))
+        {
+            if (!_civEcho) Log.Info("CI-V: the bus echoes our frames - reading echo + answer in one go from now on");
+            _civEcho = true;
+            all.Clear();
+            SendRawRead(ask, all, exactLength: ask.Length + answerLen);
+            a = AnswerIn(all, _civAddr, body[0]);
+        }
+        return a;
+    }
+
+    private bool _civEcho;
+
+    /// <summary>The first answer from the radio to us in what was read: a frame FE FE E0 addr ... FD whose command is
+    /// <paramref name="cmd"/>, or OK (FB) / NG (FA). Its bytes after the address, without FD.</summary>
+    internal static byte[]? AnswerIn(IReadOnlyList<byte> b, byte addr, byte cmd)
+    {
+        for (int i = 0; i + 5 < b.Count; i++)
+        {
+            if (b[i] != 0xFE || b[i + 1] != 0xFE || b[i + 2] != 0xE0 || b[i + 3] != addr) continue;
+            int end = i + 4; while (end < b.Count && b[end] != 0xFD) end++;
+            if (end >= b.Count) return null;
+            var d = b.Skip(i + 4).Take(end - i - 4).ToArray();
+            if (d.Length > 0 && (d[0] == cmd || d[0] is 0xFA or 0xFB)) return d;
+        }
+        return null;
+    }
+
+    /// <summary>Five BCD bytes, least significant first (CI-V frequency) -> Hz; -1 when it is no BCD.</summary>
+    internal static double BcdHz(ReadOnlySpan<byte> b)
+    {
+        double hz = 0, mul = 1;
+        foreach (var x in b)
+        {
+            int lo = x & 0x0F, hi = x >> 4;
+            if (lo > 9 || hi > 9) return -1;
+            hz += (lo + 10 * hi) * mul; mul *= 100;
+        }
+        return hz;
+    }
+
+    private DateTime _nextOther = DateTime.MinValue;
+    private bool _otherWarned;
+
+    /// <summary>
+    /// Reads the band that is NOT selected (v1.0.18, PA5DJ: "just read MAIN and SUB, without me having to do anything on the
+    /// radio"). Measured raw on PA5DJ's IC-9700 (19 November 2026): in satellite mode 25 00/01 and 26 00/01 are refused (NG) and
+    /// 03 / 1C 03 give only the selected band - the radio has no command that reads the other band. So, as SatPC32 and Hamlib
+    /// do: select the other band (07 D0 = MAIN / 07 D1 = SUB), read it with 03, and select the operator's band again - ALWAYS,
+    /// also when the read failed. Never while transmitting. The band marker on the radio blinks for a moment.
+    /// </summary>
+    private void ReadOtherBand(int selected)
+    {
+        if (_pttOn || _civAddr == 0 || selected is not (0 or 1) || DateTime.UtcNow < _nextOther) return;
+        _nextOther = DateTime.UtcNow.AddSeconds(2);
+        int other = 1 - selected;
+        byte[] Select(int band) => new byte[] { 0x07, band == 0 ? (byte)0xD0 : (byte)0xD1 };
+        var ok = Civ(Select(other), 6);
+        if (ok is not [0xFB])
+        {
+            // refused: most likely satellite mode was just switched off (measured on PA5DJ's IC-9700: FA right after) - ask now
+            // instead of at the next periodic check. Nothing was selected, so nothing to put back.
+            if (!_otherWarned) Log.Info($"Satellite mode: selecting {(other == 0 ? "MAIN" : "SUB")} to read it was not accepted ({Hex(ok)}) - checking satellite mode");
+            _otherWarned = true;
+            AskSatMode("a band select was refused");
+            return;
+        }
+        _otherWarned = false;
+        try
+        {
+            var f = Civ(new byte[] { 0x03 }, 11);
+            if (f is { Length: 6 } && f[0] == 0x03 && BcdHz(f.AsSpan(1, 5)) is var hz and > 0)
+            {
+                if (other == 1) _satSubHz = hz; else _satMainHz = hz;
+            }
+            else Log.Warn($"Satellite mode: reading {(other == 0 ? "MAIN" : "SUB")} gave {Hex(f)}");
+        }
+        finally
+        {
+            // back to the operator's band - and check it, once more if it did not take
+            Civ(Select(selected), 6);
+            int now = ReadSelectedBand(out _);
+            if (now != selected)
+            {
+                Civ(Select(selected), 6);
+                now = ReadSelectedBand(out var raw);
+                if (now != selected) Log.Warn($"Satellite mode: could not select {(selected == 0 ? "MAIN" : "SUB")} again (07 D2 read: {raw})");
+            }
+        }
+    }
+
+    private static string Hex(byte[]? b) => b == null ? "no answer" : Convert.ToHexString(b);
 
     /// <summary>FE FE E0 addr 07 D2 nn FD anywhere in what was read: nn 00 = MAIN, 01 = SUB; -1 = not there.</summary>
     internal static int SelectedBandIn(IReadOnlyList<byte> b, byte addr)
@@ -336,7 +444,11 @@ public sealed class RigControl : IDisposable
             Log.Warn($"Satellite mode: which band is selected (CI-V 07 D2, address {_civAddr:X2}h) did not answer (read: {raw}) - "
                    + "the frequencies stay as last read. Over rigctld/FLRig this cannot be read; Bleeps needs the COM port itself.");
         }
-        string status = _satSubHz > 0 ? "Connected - satellite mode" : "Satellite mode: select SUB (uplink) once on the radio so Bleeps can read the TX frequency";
+        ReadOtherBand(band);                                       // the band that is not selected, every 2 s
+        if (!_satMode) { Publish(new RigState(true, hz, mode, "Connected")); return; }   // it found satellite mode off
+        string status = _satSubHz > 0 && _satMainHz > 0 ? "Connected - satellite mode"
+                      : _civAddr == 0 ? "Satellite mode: Bleeps needs the radio's own port (not rigctld/FLRig) to read MAIN and SUB"
+                      : "Satellite mode: reading MAIN and SUB...";
         Publish(new RigState(true, _satSubHz, mode, status, true, _satMainHz));
     }
 
@@ -399,7 +511,7 @@ public sealed class RigControl : IDisposable
         Conf(_rig, "retry", "0");
         try { HamlibNative.rig_set_cache_timeout_ms(_rig, 0, 0); } catch (EntryPointNotFoundException) { }
         _fails = 0;
-        _satMode = _satAsked = _satWarned = false; _satSubHz = _satMainHz = 0;
+        _satMode = _satAsked = _satWarned = false; _satSubHz = _satMainHz = 0; _nextOther = DateTime.MinValue; _civEcho = false;
         if (_cfg.Model != RigConfig.NoRig) { _civAddr = CivAddressOf(); AskSatMode("after rig_open"); }
         if (_cfg.Model == RigConfig.NoRig) Publish(new RigState(false, 0, "", $"No radio, PTT on {_cfg.Ptt}"));
         else Poll();

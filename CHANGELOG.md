@@ -1,5 +1,23 @@
 # Bleeps Changelog
 
+## v1.0.18
+
+- **Satellite mode: MAIN and SUB are both read automatically** (PA5DJ: *"this does not work well at all.. just read MAIN and
+  SUB, without me having to do anything on the radio"*). Measured raw on PA5DJ's IC-9700 (straight over COM3, no Hamlib, only
+  reading questions): in satellite mode `25 00`, `25 01`, `26 00` and `26 01` are all refused (NG), and `03` and `1C 03` give
+  only the selected band - the radio itself has no command that reads the other band; it is not a Hamlib limit. So Bleeps
+  now does what satellite programs do: the selected band at every poll, the other one every 2 s by selecting it for a moment
+  (`07 D0`/`07 D1`), reading it (`03`) and selecting the operator's band again - always, checked with `07 D2`. Never while
+  transmitting, never `07 B0`. The band marker on the radio blinks briefly.
+  - Once the CI-V bus is seen to echo, echo + answer are read in one go, so every command goes out once.
+  - A refused band select (the radio did that right after satellite mode was switched off) makes Bleeps ask about satellite
+    mode at once: back to the normal dial within ~3 s instead of ~15 s.
+  Tested: the fake IC-9700 (now really selecting on `07 D0/D1`, with PTT, bus echo, and NG when not in satellite mode) with the
+  real RigControl and libhamlib - both known without touching the radio, the operator's band stays selected, the other band
+  follows within ~2 s, no select while transmitting, TX never MAIN and RX never SUB, no `07 B0`, satellite mode off noticed in
+  ~3 s; 28 of 28, with and without echo. On PA5DJ's real IC-9700: TX (SUB) 435.385 000 and RX (MAIN) 144.754 360 read at once,
+  nothing selected by hand (PA5DJ: "yes, it matches").
+
 ## v1.0.17
 
 - **Satellite radios: MAIN and SUB in satellite mode** (PA5DJ: *"apply ShackAssistant's PLAN-SAT9700 here too, for satellite
