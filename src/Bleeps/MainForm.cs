@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.11";
+    public const string Version = "v1.0.12";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -105,9 +105,6 @@ internal sealed class MainForm : Form
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("E&xit", null, (_, _) => Close());
         var help = new ToolStripMenuItem("&Help");
-        help.DropDownItems.Add("Bleeps on the web", null, (_, _) => OpenUrl("https://shackassistant.com/guides/bleeps.html"));
-        help.DropDownItems.Add("Open the &log folder", null, (_, _) => OpenFolder(Path.GetDirectoryName(Log.FilePath)!));
-        help.DropDownItems.Add(new ToolStripSeparator());
         help.DropDownItems.Add("&About Bleeps", null, (_, _) => About());
         menu.Items.Add(file); menu.Items.Add(help);
         MainMenuStrip = menu;

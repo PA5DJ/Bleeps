@@ -1,5 +1,9 @@
 # Bleeps Changelog
 
+## v1.0.12
+
+- **Het Help-menu bevat alleen About Bleeps** (PA5DJ: *"Ja, alleen About"*): "Bleeps on the web" en "Open the log folder" zijn eruit.
+
 ## v1.0.11
 
 - **De links naar www.ham4life.com en www.pa5dj.nl staan alleen in About** (PA5DJ: *"in help alleen link naar about venster"*): uit het
