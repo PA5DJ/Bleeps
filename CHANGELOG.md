@@ -1,5 +1,11 @@
 # Bleeps Changelog
 
+## v1.0.21
+
+- **The splash shows the credit** (PA5DJ: *"put credits on the splash"* - PA5DJ and the websites): under the logo
+  "by PA5DJ - www.ham4life.com - www.pa5dj.nl", above the "Bleeps vX - starting..." line. Checked by rendering the splash
+  to a picture.
+
 ## v1.0.20
 
 - **Dark mode** (PA5DJ: *"make dark mode in Bleeps"*). Settings > Station > **Theme**: System (follows Windows' app mode,
