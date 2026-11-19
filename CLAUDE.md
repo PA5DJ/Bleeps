@@ -55,6 +55,15 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
   port. `SetPtt` WAITS until it is done (the audio starts after PTT). Mode when tuning: None / USB / Data (PKTUSB).
   `RigConfig.DefaultCivAddress(model)` (v1.0.14): the model's default CI-V address from Hamlib (`rig_init` + `civaddr`, decimal ->
   hex), "" = not a CI-V radio.
+  **Satellite mode** (v1.0.17, port of ShackAssistant's `PLAN-SAT9700.md` / SA v1.0.753-755, measured on PA5DJ's IC-9700):
+  `AskSatMode` (`rig_get_func(RIG_FUNC_SATMODE)`) after rig_open, on a refused poll (-9) and every 30 polls - asking is also what
+  makes Hamlib 4.7.2 stop sending 0x25/0x26, which the IC-9700 refuses in satellite mode. Then per poll `03` (Hamlib's get_freq)
+  + `07 D2` (raw, `rig_send_raw`, echo-aware): 00 = MAIN = RX (downlink), 01 = SUB = TX (uplink). `RigState.Hz` = SUB (0 until
+  read), `RigState.RxHz` = MAIN, `RigState.Sat`. `1C 03` is NOT the TX frequency in satellite mode (it is the selected band).
+  NEVER select a band/VFO to read (`07 D0/D1/B0`, `07 00/01`, VFO_SUB/VFO_TX); no tuning in satellite mode (`SetFrequency`
+  returns, `MainForm.Tune` says so). A missed `07 D2` (CI-V Transceive frames) = keep the last values, never guess.
+  Not over rigctld/FLRig (no raw). Tested with ShackAssistant's fake IC-9700 (`tools/uitest/Sat9700.cs`) in scratchpad `sat`:
+  the real RigControl + libhamlib over 127.0.0.1, 12 checks.
 - `Frequencies.cs` - `FrequencyList` (default = the shared `BleepsFrequencies.All` since v1.0.5) (`frequencies.json` in
   `%APPDATA%\Bleeps`), by default the Bleeps suggestions (R1 band plan, next to FT8/FT4, clear of CW/phone/RTTY; QO-100 as uplink
   2400.060). `Bands` = band table and frequency text ALWAYS with a point.

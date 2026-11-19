@@ -1,5 +1,24 @@
 # Bleeps Changelog
 
+## v1.0.17
+
+- **Satellite radios: MAIN and SUB in satellite mode** (PA5DJ: *"apply ShackAssistant's PLAN-SAT9700 here too, for satellite
+  radios"*). Ported from ShackAssistant v1.0.753-755, as measured on PA5DJ's IC-9700:
+  - Bleeps asks the radio whether it is in satellite mode (after connecting, when a poll is refused, and every 30 polls). That
+    question is also what makes Hamlib 4.7.2 stop using 0x25/0x26, which the IC-9700 refuses in satellite mode - before, the
+    connection kept failing.
+  - In satellite mode `03` reads the SELECTED band and CI-V `07 D2` says which: MAIN = downlink (RX), SUB = uplink (TX). The dial
+    shows TX (SUB) with "TX" before the mode, and "SAT / RX ..." (MAIN) next to it. A band that is not selected keeps its last
+    value; the TX is unknown until SUB has been selected once.
+  - Bleeps never selects a band or VFO, and does not tune in satellite mode (a band button says which uplink to set).
+  - A missed `07 D2` (CI-V Transceive frames while the knob turns) keeps the last values instead of guessing.
+  - Not over rigctld/FLRig (they do not pass raw CI-V on).
+  - Settings > Radio's model's CI-V address (from Hamlib) is what the question goes to.
+  Tested: ShackAssistant's fake IC-9700 on 127.0.0.1 with the real RigControl and libhamlib - normal mode tunes; satellite mode
+  noticed; MAIN selected = RX, TX unknown; SUB selected = TX; each follows its knob while selected; with CI-V Transceive TX never
+  shows MAIN and RX never SUB; no tuning and no band selected in satellite mode; back to normal when it goes off (12 of 12). On
+  screen: dial 145.900 000 "TX USB", "SAT RX 435.500 000", band 2m orange. README: a section *Satellite radios (IC-9700)*.
+
 ## v1.0.16
 
 - **Everything in the repository is English** (PA5DJ: *"what we chat here is Dutch, but code and comments are always English,

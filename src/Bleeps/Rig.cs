@@ -92,7 +92,10 @@ public sealed class RigConfig
 }
 
 /// <summary>What the radio said at the last poll.</summary>
-public sealed record RigState(bool Connected, double Hz, string Mode, string Status);
+/// <param name="Hz">The dial. In satellite mode the TRANSMIT frequency (uplink = SUB); 0 = not known yet.</param>
+/// <param name="Sat">The radio is in satellite mode (IC-9700 and friends).</param>
+/// <param name="RxHz">In satellite mode the RECEIVE frequency (downlink = MAIN); 0 = not known yet.</param>
+public sealed record RigState(bool Connected, double Hz, string Mode, string Status, bool Sat = false, double RxHz = 0);
 
 /// <summary>
 /// Hamlib on ONE thread of its own: Hamlib is not thread-safe, so every call - open, poll, set, PTT - goes through the
@@ -124,10 +127,11 @@ public sealed class RigControl : IDisposable
         _thread.Start();
     }
 
-    /// <summary>Tune: frequency in Hz, then the mode of Settings (None = leave the mode alone).</summary>
+    /// <summary>Tune: frequency in Hz, then the mode of Settings (None = leave the mode alone). Never in satellite mode: there
+    /// it would set whichever band is selected (MAIN or SUB) - the operator tunes the radio.</summary>
     public void SetFrequency(double hz) => _queue.TryAdd(() =>
     {
-        if (_rig == IntPtr.Zero || _cfg.Model == RigConfig.NoRig) return;
+        if (_rig == IntPtr.Zero || _cfg.Model == RigConfig.NoRig || _satMode) return;
         int r = HamlibNative.rig_set_freq(_rig, HamlibNative.RIG_VFO_CURR, hz);
         if (r != HamlibNative.RIG_OK) Log.Warn($"rig_set_freq {hz:0}: {HamlibNative.ErrorText(r)}");
         ulong mode = _cfg.RigMode switch { "USB" => 1UL << 2, "Data" => 1UL << 11, _ => 0 };
@@ -197,10 +201,112 @@ public sealed class RigControl : IDisposable
 
     private int _fails;
 
+    // ── satellite mode (v1.0.17, ShackAssistant's PLAN-SAT9700 / SA v1.0.753-755, measured on PA5DJ's IC-9700) ──
+    // In satellite mode the IC-9700 refuses 0x25/0x26 (NG); 0x03 reads the SELECTED band and 07 D2 says which: 00 = MAIN =
+    // downlink (RX), 01 = SUB = uplink (TX). 1C 03 is NOT the transmit frequency there (it is the selected band too), and nothing
+    // reads the band that is not selected. So: TX = SUB as last read while SUB was selected, RX = MAIN as last read while MAIN
+    // was selected. NEVER select a band or VFO to read (07 D0/D1/B0, 07 00/01, Hamlib's VFO_SUB/VFO_TX).
+    private bool _satMode, _satAsked, _satWarned;
+    private byte _civAddr;
+    private double _satSubHz, _satMainHz;
+    private int _satTick;
+
+    /// <summary>Asks the rig whether it is in satellite mode. That question is also what makes Hamlib 4.7.2 switch over to
+    /// 0x03/0x04 (icom_satmode_fix) - its own check in rig_open is skipped when the first 0x25 is refused. Harmless on any
+    /// other rig: Hamlib answers -RIG_ENAVAIL from the caps, without a byte on the line.</summary>
+    private bool AskSatMode(string when)
+    {
+        try
+        {
+            if (_rig == IntPtr.Zero) return false;
+            if (HamlibNative.rig_get_func(_rig, HamlibNative.RIG_VFO_CURR, HamlibNative.RIG_FUNC_SATMODE, out int on) != HamlibNative.RIG_OK)
+                return false;
+            if (on != 0 && !_satMode) Log.Info($"Satellite mode is ON ({when}): TX = SUB (uplink), RX = MAIN (downlink); Bleeps does not tune");
+            else if (on == 0 && _satMode) Log.Info($"Satellite mode is OFF ({when})");
+            _satMode = on != 0;
+            if (!_satMode) { _satSubHz = 0; _satMainHz = 0; }
+            return _satMode;
+        }
+        catch (EntryPointNotFoundException) { return false; }
+        catch (Exception ex) { Log.Warn($"Satellite mode check: {ex.Message}"); return false; }
+    }
+
+    /// <summary>The rig's CI-V address as Hamlib has it ("civaddr", decimal) - 0 for a rig that is no Icom, or behind rigctld
+    /// or FLRig (07 D2 goes out raw, which they do not pass on). A COM port or a host:port network port both work.</summary>
+    private byte CivAddressOf()
+    {
+        if (RigConfig.IsNetworkModel(_cfg.Model)) return 0;
+        try
+        {
+            int tok = HamlibNative.rig_token_lookup(_rig, "civaddr");
+            if (tok <= 0) { Log.Info($"CI-V address: Hamlib has no 'civaddr' for this rig (token {tok})"); return 0; }
+            var sb = new System.Text.StringBuilder(32);
+            int r = HamlibNative.rig_get_conf2(_rig, tok, sb, sb.Capacity);
+            if (r != HamlibNative.RIG_OK) { Log.Info($"CI-V address: rig_get_conf2 said {HamlibNative.ErrorText(r)}"); return 0; }
+            var s = sb.ToString().Trim();
+            Log.Info($"CI-V address: Hamlib says '{s}'");
+            int v = s.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? Convert.ToInt32(s[2..], 16) : int.Parse(s, CultureInfo.InvariantCulture);
+            return v is > 0 and < 0xE0 ? (byte)v : (byte)0;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>Raw bytes out, what came back in. <paramref name="exactLength"/> above 0 = read exactly that many (echo +
+    /// answer in one go on a CI-V bus that echoes - Hamlib empties the port before each send).</summary>
+    private int SendRawRead(byte[] ask, List<byte> into, int exactLength = 0)
+    {
+        try
+        {
+            var buf = new byte[exactLength > 0 ? exactLength + 1 : 64];   // Hamlib keeps the last byte for a closing 0
+            int r = HamlibNative.rig_send_raw(_rig, ask, ask.Length, buf, buf.Length, exactLength > 0 ? null : new[] { ask[^1], (byte)0 });
+            if (r > 0) into.AddRange(buf.AsSpan(0, Math.Min(r, buf.Length)).ToArray());
+            return r;
+        }
+        catch (EntryPointNotFoundException) { return -1; }
+        catch (Exception ex) { Log.Warn($"rig_send_raw: {ex.Message}"); return -1; }
+    }
+
+    /// <summary>Which band is SELECTED: 0 = MAIN, 1 = SUB, -1 = no answer. CI-V 07 D2 without data only READS.</summary>
+    private int ReadSelectedBand(out string raw)
+    {
+        raw = "no CI-V address";
+        if (_civAddr == 0) return -1;
+        var ask = new byte[] { 0xFE, 0xFE, _civAddr, 0xE0, 0x07, 0xD2, 0xFD };
+        var all = new List<byte>();
+        SendRawRead(ask, all);
+        int band = SelectedBandIn(all, _civAddr);
+        // a bus that echoes: the first FD was our own frame - once more, echo + answer in one read
+        if (band < 0 && all.Count >= ask.Length && all.Take(ask.Length).SequenceEqual(ask))
+        {
+            SendRawRead(ask, all, exactLength: ask.Length + 8);
+            band = SelectedBandIn(all, _civAddr);
+        }
+        raw = all.Count == 0 ? "nothing" : Convert.ToHexString(all.ToArray());
+        return band;
+    }
+
+    /// <summary>FE FE E0 addr 07 D2 nn FD anywhere in what was read: nn 00 = MAIN, 01 = SUB; -1 = not there.</summary>
+    internal static int SelectedBandIn(IReadOnlyList<byte> b, byte addr)
+    {
+        for (int i = 0; i + 7 < b.Count; i++)
+            if (b[i] == 0xFE && b[i + 1] == 0xFE && b[i + 2] == 0xE0 && b[i + 3] == addr && b[i + 4] == 0x07 && b[i + 5] == 0xD2
+                && b[i + 7] == 0xFD && b[i + 6] <= 1)
+                return b[i + 6];
+        return -1;
+    }
+
     private void Poll()
     {
         if (_rig == IntPtr.Zero) return;
         int r = HamlibNative.rig_get_freq(_rig, HamlibNative.RIG_VFO_CURR, out double hz);
+        // REFUSED (NG), not silent: the rig may just have gone into satellite mode - ask, and if so read again at once.
+        // Once per refusal streak, so a rig that refuses for another reason costs one extra question.
+        if (r == HamlibNative.RIG_ERJCTED && !_satAsked)
+        {
+            _satAsked = true;
+            if (AskSatMode("a poll was refused")) r = HamlibNative.rig_get_freq(_rig, HamlibNative.RIG_VFO_CURR, out hz);
+        }
+        else if (r == HamlibNative.RIG_OK) _satAsked = false;
         if (r != HamlibNative.RIG_OK)
         {
             if (++_fails >= 3)
@@ -214,7 +320,24 @@ public sealed class RigControl : IDisposable
         _fails = 0;
         string mode = State.Mode;
         if (HamlibNative.rig_get_mode(_rig, HamlibNative.RIG_VFO_CURR, out ulong m, out _) == HamlibNative.RIG_OK) mode = ModeName(m);
-        Publish(new RigState(true, hz, mode, "Connected"));
+
+        if (++_satTick % 30 == 0) AskSatMode("periodic check");   // notices satellite mode going off (or on without a refusal)
+        if (!_satMode) { Publish(new RigState(true, hz, mode, "Connected")); return; }
+
+        // 07 D2 can miss: with CI-V Transceive on, the radio sends frames of its own while the knob turns, and Hamlib reads up
+        // to the FIRST FD. Once more; still not known = the frequencies STAY as they were - never guess which band 03 gave.
+        int band = ReadSelectedBand(out string raw);
+        if (band < 0) band = ReadSelectedBand(out raw);
+        if (band == 1) _satSubHz = hz;
+        else if (band == 0) _satMainHz = hz;
+        else if (!_satWarned)
+        {
+            _satWarned = true;
+            Log.Warn($"Satellite mode: which band is selected (CI-V 07 D2, address {_civAddr:X2}h) did not answer (read: {raw}) - "
+                   + "the frequencies stay as last read. Over rigctld/FLRig this cannot be read; Bleeps needs the COM port itself.");
+        }
+        string status = _satSubHz > 0 ? "Connected - satellite mode" : "Satellite mode: select SUB (uplink) once on the radio so Bleeps can read the TX frequency";
+        Publish(new RigState(true, _satSubHz, mode, status, true, _satMainHz));
     }
 
     private static void Conf(IntPtr rig, string key, string val)
@@ -276,6 +399,8 @@ public sealed class RigControl : IDisposable
         Conf(_rig, "retry", "0");
         try { HamlibNative.rig_set_cache_timeout_ms(_rig, 0, 0); } catch (EntryPointNotFoundException) { }
         _fails = 0;
+        _satMode = _satAsked = _satWarned = false; _satSubHz = _satMainHz = 0;
+        if (_cfg.Model != RigConfig.NoRig) { _civAddr = CivAddressOf(); AskSatMode("after rig_open"); }
         if (_cfg.Model == RigConfig.NoRig) Publish(new RigState(false, 0, "", $"No radio, PTT on {_cfg.Ptt}"));
         else Poll();
         return true;

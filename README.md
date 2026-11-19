@@ -29,6 +29,7 @@ The protocol is open: see [Protocol description](#protocol-description) below, w
    - [TX drive and levels](#tx-drive-and-levels)
    - [More than one radio (`--rig`)](#more-than-one-radio---rig)
    - [QO-100 and full duplex](#qo-100-and-full-duplex)
+   - [Satellite radios (IC-9700)](#satellite-radios-ic-9700)
 4. [Where Bleeps keeps its files](#where-bleeps-keeps-its-files)
 5. [Troubleshooting](#troubleshooting)
 6. [Protocol description](#protocol-description)
@@ -196,6 +197,27 @@ The 13cm entry is the QO-100 uplink (2400.060 MHz; the downlink is 10489.560). W
 coming back from the satellite is marked ↩ ✓ on your own line. Leave it off with a single HF radio - its receiver is
 muted while sending.
 
+### Satellite radios (IC-9700)
+
+Bleeps notices when the radio is in **satellite mode** (IC-9700 and other Icoms with a satellite mode) and then works with
+**MAIN and SUB**, not with VFOs:
+
+| | Band | Shown |
+|---|---|---|
+| **TX** (uplink) | **SUB** | in the dial, with `TX` before the mode |
+| **RX** (downlink) | **MAIN** | under `SAT`, next to the dial |
+
+- The radio can only tell the frequency of the band that is **selected** (Bleeps asks which one with CI-V `07 D2`). So
+  each band is read while it is selected, and a band that is not selected shows the value it had when it was last
+  selected. After connecting, select SUB and MAIN once on the radio so both are known.
+- Bleeps **never** selects a band or VFO on the radio, and it **does not tune** in satellite mode: the band buttons only
+  tell you which uplink to set. Tune the radio (or your tracking program) yourself.
+- This needs Bleeps to talk to the radio itself (a COM port, or the radio's own network port) - rigctld and FLRig do not
+  pass the `07 D2` question on.
+- **CI-V Transceive** can be left off; Bleeps does not need it. With it on, a reading can be missed while the knob turns;
+  the frequencies then keep their last value rather than show the wrong band.
+- When satellite mode is switched off on the radio, Bleeps notices within a few seconds and goes back to the normal dial.
+
 ---
 
 ## Where Bleeps keeps its files
@@ -218,6 +240,7 @@ With `--rig NAME` the folders are called `Bleeps - NAME`.
 | Radio does not key | Check **PTT** in Settings -> Radio. With CAT, the radio must accept CAT PTT; with RTS/DTR, check the line and the PTT port; with VOX, turn VOX on in the radio. |
 | Nothing decodes | Check the audio input and the level (the noise should be visible in the waterfall), and that the radio is in USB/DATA mode on the right frequency. |
 | Signal splatters / others can't read you | Lower the **TX drive** until the ALC stays still. |
+| Satellite mode: the dial shows `-- . --- ---` | Select SUB (the uplink) once on the radio, so Bleeps can read it. Over rigctld/FLRig it cannot - connect Bleeps to the radio directly. |
 | Something else | Look in the debug log (**File -> Open the log folder**). |
 
 ## Protocol description

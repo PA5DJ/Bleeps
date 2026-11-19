@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.16";
+    public const string Version = "v1.0.17";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -24,6 +24,9 @@ internal sealed class MainForm : Form
     private readonly Label _dial = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Consolas", 22, FontStyle.Bold),
                                            BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, ForeColor = Color.FromArgb(80, 255, 80), Size = new Size(250, 44) };
     private readonly Label _mode = new() { AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), Margin = new Padding(8, 14, 0, 0) };
+    // satellite mode: "SAT" and the downlink (MAIN) under it; the dial is then the uplink (SUB)
+    private readonly Label _sat = new() { AutoSize = true, Font = new Font("Consolas", 10, FontStyle.Bold), Margin = new Padding(10, 6, 0, 0),
+                                          ForeColor = Color.FromArgb(0, 120, 215), Visible = false };
     private readonly FlowLayoutPanel _bandButtons = new() { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(4, 0, 4, 4) };
 
     // chat + waterfall
@@ -116,6 +119,9 @@ internal sealed class MainForm : Form
         bar.Controls.Add(_band);
         bar.Controls.Add(_dial);
         bar.Controls.Add(_mode);
+        bar.Controls.Add(_sat);
+        _tips.SetToolTip(_sat, "Satellite mode: the dial is TX = SUB (uplink), RX = MAIN (downlink). Each is read while it is the selected band on the radio, "
+                             + "so a band that is not selected shows its last value. Bleeps never selects a band and does not tune in satellite mode.");
         _tips.SetToolTip(_band, "The band, as in WSJT-X: pick a frequency from the list (Settings -> Frequencies), or type one in MHz (14.071) or a band (20m) and press Enter.");
         _tips.SetToolTip(_dial, "The dial frequency of the radio. Red: the radio does not answer.");
         _band.SelectionChangeCommitted += (_, _) => { if (_band.SelectedItem is FrequencyEntry e) Tune(e.MHz); };
@@ -239,15 +245,18 @@ internal sealed class MainForm : Form
         _rigState = s;
         var cfg = RigConfig.Load(_settings);
         bool rig = cfg.Model != RigConfig.NoRig;
-        _dial.Text = s.Connected ? Bands.FormatDial(s.Hz) : rig ? "-- . --- ---" : "no CAT";
+        bool known = s.Connected && s.Hz > 0;
+        _dial.Text = known ? Bands.FormatDial(s.Hz) : rig ? "-- . --- ---" : "no CAT";
         _dial.BackColor = !rig || s.Connected ? Color.Black : Color.FromArgb(150, 0, 0);
-        _mode.Text = s.Connected ? s.Mode : "";
+        _mode.Text = s.Connected ? (s.Sat ? "TX " : "") + s.Mode : "";
+        _sat.Visible = s.Connected && s.Sat;
+        if (_sat.Visible) _sat.Text = "SAT\nRX " + (s.RxHz > 0 ? Bands.FormatDial(s.RxHz) : "(select MAIN)");
         _stRig.Text = rig ? $"{_rig?.Describe()}: {s.Status}" : s.Status;
-        if (s.Connected && !_band.DroppedDown && !_band.Focused)
+        if (known && !_band.DroppedDown && !_band.Focused)
         {
             _band.Text = Bands.Of(s.Hz);
         }
-        HighlightBand(s.Connected ? Bands.Of(s.Hz) : "");
+        HighlightBand(known ? Bands.Of(s.Hz) : "");
     }
 
     private void Tune(double mhz)
@@ -256,6 +265,11 @@ internal sealed class MainForm : Form
         if (_rig == null || RigConfig.Load(_settings).Model == RigConfig.NoRig)
         {
             _panel.SetStatus($"No radio (CAT) set: tune to {Bands.FormatMHz(mhz)} MHz by hand");
+            return;
+        }
+        if (_rigState.Sat)
+        {
+            _panel.SetStatus($"Satellite mode: Bleeps does not tune - set the uplink (SUB) to {Bands.FormatMHz(mhz)} MHz on the radio");
             return;
         }
         _rig.SetFrequency(mhz * 1e6);
