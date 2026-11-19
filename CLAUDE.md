@@ -29,6 +29,9 @@ Hamlib-DLL's komen uit `..\ShackAssistant\hamlib-w64\bin` en staan naast de exe 
   (5) ervan in VERMOGEN gemiddeld per rij, per pixel alle bins opgeteld (nooit een bin kiezen). Kleur: `FloorDb` = ruis + 7 + `floor`
   (0), `CurveDb` = `span` (30) - de Skim-curve van `WaterfallPanel` begint 7 dB onder FloorDb; met de 11 dB van ShackAssistant werd
   elk station wit. CeilingDb doet in deze stand niets. Gemeten in scratchpad `bleepswf` (nep-band: -10/0/+10 dB Bleeps + draaggolf).
+  - **Bediening onder de waterval (v1.0.2)** zoals WSJT-X: Bins/Pixel (`bpp`, 4), Start (`start`, 100), N Avg (`avg`, 5 = de
+    SNELHEID), Gain (`gain`: span = 30 / 10^(0,015 x Gain) dB, WSJT-X's stap) en Zero (`zero`: vloer -0,2 dB per stap). Het bereik
+    is Start .. Start + breedte x Bins/Pixel x 0,73 Hz (max 6 kHz, `ApplyWfRange`, ook bij Resize); Bins/Pixel en Start wissen het beeld.
 - `Rig.cs` - `RigConfig` (EEN radio, `[radio]` in de INI) en `RigControl`: Hamlib op EEN eigen draad met een wachtrij (Hamlib is niet
   thread-safe). Model 2 = rigctld, 4 = FLRig (poort `host:port`); geen radio + PTT RTS/DTR = Hamlibs dummy-rig met alleen de PTT-poort.
   `SetPtt` WACHT tot het gedaan is (de audio start na PTT). Mode bij afstemmen: None / USB / Data (PKTUSB).

@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.1";
+    public const string Version = "v1.0.2";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -126,7 +126,7 @@ internal sealed class MainForm : Form
         _band.DropDown += (_, _) => FillBandList();
 
         // ── waterfall + TX drive ──
-        var wfHost = new Panel { Dock = DockStyle.Bottom, Height = 230, Padding = new Padding(4, 2, 4, 2) };
+        var wfHost = new Panel { Dock = DockStyle.Bottom, Height = 262, Padding = new Padding(4, 2, 4, 2) };
         var split = new Splitter { Dock = DockStyle.Bottom, Height = 5, MinExtra = 200, MinSize = 100 };
         var driveHost = new Panel { Dock = DockStyle.Right, Width = 54 };
         var driveLabel = new Label { Dock = DockStyle.Top, Height = 32, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8) };
@@ -139,6 +139,8 @@ internal sealed class MainForm : Form
         driveHost.Controls.Add(driveLabel);
         wfHost.Controls.Add(_waterfall);
         wfHost.Controls.Add(driveHost);
+        wfHost.Controls.Add(BuildWaterfallBar());
+        _waterfall.Resize += (_, _) => ApplyWfRange(clear: false);
         _waterfall.ShowCursor = false;
         _waterfall.CursorCommitted += hz => _panel.SetTxHz(hz - _panel.Speed.CenterOffset);   // a click: there we send
         _tips.SetToolTip(_waterfall, "Click where you want to send (the middle of your signal). The stations being read stand in their colour.");
@@ -167,6 +169,7 @@ internal sealed class MainForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        ApplyWfRange(clear: false);
         StartAudio();
         StartRig();
         StartRx();
@@ -376,7 +379,7 @@ internal sealed class MainForm : Form
     // A new spectrum every 80 ms of audio (WSJT-X: every half symbol), WfAvg of them averaged in POWER into one row (WSJT-X
     // "N Avg", default 5), and per pixel the power of ALL bins in it is added up (WSJT-X "Bins/Pixel") - never one bin picked.
     internal const int WfFft = 65536, WfHop = 3840;
-    private int WfAvg => Math.Clamp(_settings.GetInt("waterfall", "avg", 5), 1, 20);
+    private int WfAvg => (int)_wfAvg.Value;
     private long _wfDone;
     private int _wfCount;
     private double[] _wfAcc = Array.Empty<double>();
@@ -427,11 +430,65 @@ internal sealed class MainForm : Form
         _waterfall.AddFrame(row, pxHz);
     }
 
-    /// <summary>[waterfall] floor (dB above the noise where the colours start, default 0) and span (dB over which they climb,
-    /// default 30 - about what WSJT-X's Gain/Zero give). Kept in the INI; fields so a harness can set them.</summary>
+    /// <summary>Fields so a harness can set the colours directly; NaN = the Gain/Zero sliders.</summary>
     internal float WfFloorAbove = float.NaN, WfSpanDb = float.NaN;
-    private float FloorAbove => float.IsNaN(WfFloorAbove) ? (float)Math.Clamp(_settings.GetDouble("waterfall", "floor", 0), -10, 20) : WfFloorAbove;
-    private float SpanDb => float.IsNaN(WfSpanDb) ? (float)Math.Clamp(_settings.GetDouble("waterfall", "span", 30), 5, 80) : WfSpanDb;
+    /// <summary>Zero, like WSJT-X: right = brighter. -50..50 moves where the colours start from +10 to -10 dB above the noise.</summary>
+    private float FloorAbove => float.IsNaN(WfFloorAbove) ? -_wfZero.Value * 0.2f : WfFloorAbove;
+    /// <summary>Gain, like WSJT-X: right = more contrast. Every step multiplies by 10^0.015 (WSJT-X's own step); 0 = 30 dB.</summary>
+    private float SpanDb => float.IsNaN(WfSpanDb) ? (float)Math.Clamp(30 / Math.Pow(10, 0.015 * _wfGain.Value), 5, 80) : WfSpanDb;
+
+    // ── the waterfall controls, as on WSJT-X's Wide Graph: Bins/Pixel, Start, N Avg (the speed), Gain, Zero ──
+    private readonly NumericUpDown _wfBpp = new() { Minimum = 1, Maximum = 10, Width = 48 };
+    private readonly NumericUpDown _wfStart = new() { Minimum = 0, Maximum = 4000, Increment = 50, Width = 64 };
+    private readonly NumericUpDown _wfAvg = new() { Minimum = 1, Maximum = 20, Width = 48 };
+    private readonly TrackBar _wfGain = new() { Minimum = -50, Maximum = 50, TickFrequency = 10, Width = 120, AutoSize = false, Height = 26 };
+    private readonly TrackBar _wfZero = new() { Minimum = -50, Maximum = 50, TickFrequency = 10, Width = 120, AutoSize = false, Height = 26 };
+    private const double BinHz = 48000.0 / WfFft;     // 0.732 Hz, WSJT-X's df3
+
+    private Control BuildWaterfallBar()
+    {
+        _wfBpp.Value = Math.Clamp(_settings.GetInt("waterfall", "bpp", 4), 1, 10);
+        _wfStart.Value = Math.Clamp(_settings.GetInt("waterfall", "start", 100), 0, 4000);
+        _wfAvg.Value = Math.Clamp(_settings.GetInt("waterfall", "avg", 5), 1, 20);
+        _wfGain.Value = Math.Clamp(_settings.GetInt("waterfall", "gain", 0), -50, 50);
+        _wfZero.Value = Math.Clamp(_settings.GetInt("waterfall", "zero", 0), -50, 50);
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 30, WrapContents = false, Padding = new Padding(0, 2, 0, 0) };
+        Label L(string t) => new() { Text = t, AutoSize = true, Margin = new Padding(8, 6, 2, 0) };
+        void Add(string label, Control c, string tip)
+        {
+            var l = L(label);
+            c.Margin = new Padding(0, 2, 4, 0);
+            bar.Controls.Add(l); bar.Controls.Add(c);
+            _tips.SetToolTip(l, tip); _tips.SetToolTip(c, tip);
+        }
+        Add("Bins/Pixel", _wfBpp, "How many 0.73 Hz bins go into one pixel (WSJT-X: Bins/Pixel). 1 = the finest; higher shows more of the band. The width of the window decides how far it reaches.");
+        Add("Start", _wfStart, "The lowest audio frequency on the left, in Hz (WSJT-X: Start).");
+        Add("N Avg", _wfAvg, "The speed of the waterfall (WSJT-X: N Avg): how many spectra (one per 80 ms) are averaged into one line. Lower = faster and more speckle; higher = slower and calmer. 5 = a line every 0.4 s.");
+        Add("Gain", _wfGain, "Contrast (WSJT-X: Gain): to the right the colours climb faster, so weaker signals already look bright.");
+        Add("Zero", _wfZero, "Brightness (WSJT-X: Zero): to the right the whole picture gets brighter, the noise too.");
+        _wfBpp.ValueChanged += (_, _) => { _settings.Set("waterfall", "bpp", (int)_wfBpp.Value); ApplyWfRange(clear: true); };
+        _wfStart.ValueChanged += (_, _) => { _settings.Set("waterfall", "start", (int)_wfStart.Value); ApplyWfRange(clear: true); };
+        _wfAvg.ValueChanged += (_, _) => { _settings.Set("waterfall", "avg", (int)_wfAvg.Value); Array.Clear(_wfAcc); _wfCount = 0; };
+        _wfGain.ValueChanged += (_, _) => _settings.Set("waterfall", "gain", _wfGain.Value);
+        _wfZero.ValueChanged += (_, _) => _settings.Set("waterfall", "zero", _wfZero.Value);
+        _wfLabel = new Label { AutoSize = true, Margin = new Padding(10, 6, 0, 0), ForeColor = Color.DimGray };
+        bar.Controls.Add(_wfLabel);
+        return bar;
+    }
+    private Label? _wfLabel;
+
+    /// <summary>The range the waterfall shows: Start up to Start + width x Bins/Pixel x 0.73 Hz (at most 6 kHz), as in WSJT-X.</summary>
+    private void ApplyWfRange(bool clear)
+    {
+        int w = Math.Max(50, _waterfall.ClientSize.Width);
+        double lo = (double)_wfStart.Value;
+        double hi = Math.Min(6000, lo + w * (double)_wfBpp.Value * BinHz);
+        if (hi <= lo + 50) hi = lo + 50;
+        if (lo >= _waterfall.MaxHz) { _waterfall.MaxHz = hi; _waterfall.MinHz = lo; }
+        else { _waterfall.MinHz = lo; _waterfall.MaxHz = hi; }
+        if (clear) _waterfall.Clear();
+        if (_wfLabel != null) _wfLabel.Text = string.Create(CultureInfo.InvariantCulture, $"{lo:0}-{hi:0} Hz, {(hi - lo) / w:0.00} Hz/px");
+    }
 
     private float[] _profDb = new float[32], _chunk = new float[256];
     private int[] _profAt = new int[32];
