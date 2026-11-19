@@ -18,6 +18,9 @@
   noticed; MAIN selected = RX, TX unknown; SUB selected = TX; each follows its knob while selected; with CI-V Transceive TX never
   shows MAIN and RX never SUB; no tuning and no band selected in satellite mode; back to normal when it goes off (12 of 12). On
   screen: dial 145.900 000 "TX USB", "SAT RX 435.500 000", band 2m orange. README: a section *Satellite radios (IC-9700)*.
+  On PA5DJ's real IC-9700 (COM3, 115200, A2, read-only test instance: PTT VOX, Mode None): connected in 0.8 s, satellite mode
+  seen right after rig_open, TX and RX matched the radio's display while selecting MAIN/SUB and turning both knobs (PA5DJ: "yes,
+  it matches"); no missed 07 D2 in the log. Satellite mode switched off was not tried on the real radio.
 
 ## v1.0.16
 
