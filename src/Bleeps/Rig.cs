@@ -28,6 +28,36 @@ public sealed class RigConfig
 
     public static bool IsNetworkModel(int model) => model is 2 or 4;
 
+    private static readonly ConcurrentDictionary<int, string> _civDefaults = new();
+
+    /// <summary>
+    /// The default CI-V address of a model, in hex ("94" for an IC-7300), or "" when the model has none (not a CI-V radio).
+    /// Read from Hamlib itself (v1.0.14, PA5DJ: "fill it in when we know it"): rig_init without opening anything, then the
+    /// backend's "civaddr" setting, which Hamlib gives in decimal ("148"). Icom, and the others that talk CI-V (Xiegu, ...).
+    /// Once per model; rig_init goes through <see cref="HamlibNative.rig_init"/> and its lock.
+    /// </summary>
+    public static string DefaultCivAddress(int model)
+    {
+        if (model == NoRig || IsNetworkModel(model) || !HamlibNative.IsAvailable) return "";
+        return _civDefaults.GetOrAdd(model, m =>
+        {
+            IntPtr rig = IntPtr.Zero;
+            try
+            {
+                rig = HamlibNative.rig_init(m);
+                if (rig == IntPtr.Zero) return "";
+                int tok = HamlibNative.rig_token_lookup(rig, "civaddr");
+                if (tok == 0) return "";                                   // RIG_CONF_END: this backend has no CI-V
+                var sb = new System.Text.StringBuilder(32);
+                if (HamlibNative.rig_get_conf2(rig, tok, sb, sb.Capacity) != 0) return "";
+                return int.TryParse(sb.ToString().Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int a)
+                       && a is > 0 and < 256 ? a.ToString("X2", CultureInfo.InvariantCulture) : "";
+            }
+            catch (Exception ex) { Log.Warn($"CI-V default of model {m}: {ex.Message}"); return ""; }
+            finally { if (rig != IntPtr.Zero) HamlibNative.rig_cleanup(rig); }
+        });
+    }
+
     public static RigConfig Load(AppSettings s) => new()
     {
         Model = s.GetInt("radio", "model", NoRig),

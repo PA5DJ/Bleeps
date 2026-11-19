@@ -1,5 +1,14 @@
 # Bleeps Changelog
 
+## v1.0.14
+
+- **Settings > Radio: CI-V wordt ingevuld als we het adres weten** (PA5DJ: *"vul in als we het weten"*). Het standaardadres komt uit
+  Hamlib zelf (`RigConfig.DefaultCivAddress`: `rig_init` zonder iets te openen, dan de instelling `civaddr` van de backend, die
+  Hamlib decimaal geeft: 148 -> `94`). Gemeten: IC-7300 94, IC-705 A4, IC-9700 A2, IC-7610 98, IC-7100 88; Yaesu/Kenwood/rigctld
+  geen. Een eigen adres blijft staan; een door ons ingevuld adres verandert mee met het model. Het vak is nu grijs voor elk model
+  zonder CI-V (eerst: alles wat niet met "Icom" begon - nu doen ook Xiegu en andere CI-V-radio's mee), en een grijs vak wordt
+  niet meer opgeslagen.
+
 ## v1.0.13
 
 - **"Open the log folder" staat nu in het File-menu** (PA5DJ: *"Ja, naar File"*), onder "Open the chat log folder" - sinds v1.0.12

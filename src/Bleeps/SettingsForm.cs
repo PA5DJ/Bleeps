@@ -17,6 +17,8 @@ internal sealed class SettingsForm : Form
     private readonly ComboBox _hand = Drop(90, "Default", "None", "XONXOFF", "Hardware");
     private readonly ComboBox _dtr = Drop(90, "Default", "High", "Low"), _rts = Drop(90, "Default", "High", "Low");
     private readonly TextBox _civ = new() { Width = 50 };
+    /// <summary>The CI-V address we filled in ourselves (the model's default); "" = none.</summary>
+    private string _civAuto = "";
     private readonly ComboBox _ptt = Drop(90, "VOX", "CAT", "RTS", "DTR");
     private readonly ComboBox _pttPort = new() { Width = 180, DropDownStyle = ComboBoxStyle.DropDown };
     private readonly ComboBox _rigMode = Drop(90, "None", "USB", "Data");
@@ -137,7 +139,7 @@ internal sealed class SettingsForm : Form
         Row(t, "Handshake:", _hand, "Default = what Hamlib's backend uses for this radio.");
         Row(t, "DTR:", _dtr, "The DTR line of the CAT port. Some interfaces need it high (power) or low (no PTT).");
         Row(t, "RTS:", _rts, "The RTS line of the CAT port.");
-        Row(t, "CI-V address:", _civ, "Icom only, in hex (94 for an IC-7300). Empty = the default of the model.");
+        Row(t, "CI-V address:", _civ, "CI-V radios only (Icom, Xiegu, ...), in hex. Filled in with the model's default from Hamlib (94 for an IC-7300); change it only if you changed it in the radio.");
         Row(t, "PTT:", _ptt, "VOX: the radio keys on the audio. CAT: through Hamlib (also via rigctld). RTS/DTR: a serial line - on the CAT port, or the PTT port below.");
         Row(t, "PTT port:", _pttPort, "For RTS/DTR: a COM port of its own. Empty = the CAT port.");
         Row(t, "Mode:", _rigMode, "What the radio is put in when you pick a band or frequency. Data = PKTUSB (USB-D, DATA-U); None = leave the mode alone.");
@@ -155,7 +157,12 @@ internal sealed class SettingsForm : Form
         bool rig = model != RigConfig.NoRig, net = RigConfig.IsNetworkModel(model);
         _port.Enabled = rig || _ptt.Text is "RTS" or "DTR";
         foreach (var c in new Control[] { _baud, _dataBits, _stopBits, _hand, _dtr, _rts }) c.Enabled = rig && !net;
-        _civ.Enabled = rig && !net && ((_model.SelectedItem as RigEntry)?.Name.StartsWith("Icom", StringComparison.OrdinalIgnoreCase) ?? false);
+        // CI-V: filled in with the model's default as soon as Hamlib knows one (v1.0.14). An address of your own stays; one
+        // filled in by us follows the model. No default = not a CI-V radio: the box goes grey.
+        string civ = rig && !net ? RigConfig.DefaultCivAddress(model) : "";
+        _civ.Enabled = civ.Length > 0;
+        string cur = _civ.Text.Trim();
+        if (cur.Length == 0 || cur.Equals(_civAuto, StringComparison.OrdinalIgnoreCase)) { _civ.Text = civ; _civAuto = civ; }
         _rigMode.Enabled = rig;
         _poll.Enabled = rig;                                   // nothing to read without a radio
         if (!rig && _ptt.Text == "CAT") _ptt.Text = "VOX";
@@ -300,7 +307,7 @@ internal sealed class SettingsForm : Form
             Port = _port.Text.Trim(),
             Baud = int.TryParse(_baud.Text, out var b) ? b : 9600,
             DataBits = _dataBits.Text, StopBits = _stopBits.Text, Handshake = _hand.Text, Dtr = _dtr.Text, Rts = _rts.Text,
-            CivAddress = _civ.Text.Trim(), Ptt = _ptt.Text, PttPort = _pttPort.Text.Trim(), RigMode = _rigMode.Text,
+            CivAddress = _civ.Enabled ? _civ.Text.Trim() : "", Ptt = _ptt.Text, PttPort = _pttPort.Text.Trim(), RigMode = _rigMode.Text,
             TxDelayMs = (int)_delay.Value, TxTailMs = (int)_tail.Value, PollMs = (int)_poll.Value,
         };
         c.Save(_s);
