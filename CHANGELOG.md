@@ -1,5 +1,13 @@
 # Bleeps Changelog
 
+## v1.0.6
+
+- **Stopte soms direct na de splash** (PA5DJ: *"stopt iedere keer na splash"*): exitcode 1, zonder foutmelding of logregel. Oorzaak in
+  Hamlib 4.7.2: `rig_register` doet `exit(1)` ("Hash collision!!! Fatal error!!") als een backend twee keer registreert - en dat
+  gebeurde als de UI-draad de modellenlijst laadde terwijl de radiodraad `rig_init` deed. Gerepareerd in het gedeelde `HamlibNative.cs`
+  van ShackAssistant (SA v1.0.750): eerst de modellenlijst, dan `rig_init` onder hetzelfde slot. Gemeten: 5 starts met de IC-9700 op
+  COM3, alle 5 blijven draaien.
+
 ## v1.0.5
 
 - De standaard-frequentielijst komt uit het gedeelde `BleepsFrequencies.cs` van ShackAssistant (Mode Master's bandknoppen, SA v1.0.748): een lijst voor beide programma's.
