@@ -11,7 +11,14 @@ window - no fixed time slots, no fixed exchange, just text (and emoji 🙂).
 - **Auto free spot**: at every Send it checks your place and moves to a quiet one if it is taken
 - Several radios side by side with `--rig NAME`, each with its own settings and logs
 
+Bleeps was designed for **full duplex**, the way QO-100 works, and is just as usable in plain **simplex** on any band.
+
 The protocol is open: see [Protocol description](#protocol-description) below, with test vectors.
+
+### ⬇ Download
+
+**[Download the latest Bleeps for Windows](https://bleeps.ham4life.com/download.php)** - free, for Windows 10 and 11
+(64-bit). Website with the guide and the protocol: **<https://bleeps.ham4life.com>**.
 
 ---
 
@@ -40,13 +47,17 @@ The protocol is open: see [Protocol description](#protocol-description) below, w
 
 ## Install
 
-1. Download `BleepsSetup_vX.Y.Z.exe` (or the `.zip` with the same name) from the
-   [Releases](https://github.com/PA5DJ/Bleeps/releases) page. The `.sha256.txt` next to it holds the checksums.
+1. Download `BleepsSetup_vX.Y.Z.zip` from **<https://bleeps.ham4life.com/download.php>** and unpack it. The download
+   page shows the SHA-256 of every file, and also lists the older versions.
 2. Run it. The installer checks for the **.NET 10 Desktop Runtime** and downloads and installs it when it is missing.
 3. Bleeps goes to `C:\Program Files\Bleeps`, with Hamlib in its own `hamlib` folder. Nothing else needs installing.
 
 Windows 10/11, 64-bit. The setup is not code-signed, so Windows SmartScreen may ask you to confirm
 (*More info* -> *Run anyway*).
+
+**Updates:** Bleeps looks for a newer version at every start and tells you when there is one (Settings > Station >
+Updates); **Help -> Check for updates...** asks at any time. Install a new version over the old one - your settings,
+frequency list and chat logs stay.
 
 ## Quick start
 
@@ -101,7 +112,7 @@ One radio, no profiles - what you set here is what Bleeps uses. Fields that do n
 ### Settings - Frequencies
 
 A grid like WSJT-X's: one row per frequency, with band, frequency in MHz, IARU region and a description.
-**Insert** adds a row, **Delete** removes one, **Reset** brings back the standard list:
+Right-click the list for **Insert** (add a row), **Delete** (remove one) and **Reset to the defaults** (the standard list):
 
 | Band | MHz | Band | MHz |
 |---|---|---|---|
@@ -116,6 +127,13 @@ A grid like WSJT-X's: one row per frequency, with band, frequency in MHz, IARU r
 
 These are suggestions inside the digimode segments of the IARU Region 1 band plans, next to FT8/FT4 and clear of
 CW, phone and RTTY. Frequencies are always written with a point (`14.071`).
+
+> **These frequencies may still change.** Bleeps is new, and the list is not yet settled. **Bleeps does not want to
+> disturb any other mode**: if a frequency turns out to get in the way of FT8, FT4, CW, RTTY, phone or anything else, it
+> moves - and as more stations come on the air the list may change too. A new version of Bleeps then brings the new list;
+> after an update, right-click the list and choose **Reset to the defaults** to load it (note your own additions first,
+> they are gone after a reset). Before you send, listen whether the frequency is free. Hear Bleeps on top of another
+> mode? Please report it in the [Issues](https://github.com/PA5DJ/Bleeps/issues).
 
 ### Bands and frequency
 
@@ -193,6 +211,15 @@ A new name starts with empty settings. The same name cannot run twice. Without t
 `Bleeps` folders.
 
 ### QO-100 and full duplex
+
+Bleeps was **designed for full duplex**, the way QO-100 works: you send on the uplink and hear the downlink at the same
+time, so Bleeps keeps decoding while you transmit. It works just as well in **simplex** with one HF or VHF radio - Bleeps
+then listens between your messages, like any other digital mode.
+
+**Full duplex without a satellite:** use an **external SDR receiver** for receiving and your radio for sending. Feed the
+SDR's audio to Bleeps' audio input, the radio's data input from Bleeps' audio output, and turn on **Full duplex**. Keep the
+SDR's antenna well away from the transmitting antenna (or use a receiver that can take it), so your own signal does not
+overload it.
 
 The 13cm entry is the QO-100 uplink (2400.060 MHz; the downlink is 10489.560). With a separate receiver you can turn on
 **Full duplex** in the Bleeps Settings: the decoder and the waterfall keep running while you send, and your own signal
@@ -396,6 +423,6 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
 ## Credits and licences
 
-- **Bleeps** by PA5DJ - <https://www.ham4life.com> - <https://www.pa5dj.nl>
+- **Bleeps** by PA5DJ - <https://bleeps.ham4life.com> - <https://www.ham4life.com> - <https://www.pa5dj.nl>
 - **Hamlib** 4.7.2 - LGPL; the licence travels along in `hamlib\COPYING.LIB.txt`. <https://hamlib.github.io>
 - **Twemoji** emoji graphics by Twitter, Inc and other contributors - CC-BY 4.0 (`src\Bleeps\Twemoji\LICENSE.txt`).
