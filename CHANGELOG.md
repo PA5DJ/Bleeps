@@ -1,5 +1,15 @@
 # Bleeps Changelog
 
+## v1.0.22
+
+- **Check for updates** (PA5DJ: *"build in check for updates too"*), the same as ShackAssistant's: **Help -> Check for
+  updates...** and, at every start, a quiet check (Settings > Station > **Updates**, `[update] check_at_start`, on by
+  default). It asks `https://bleeps.ham4life.com/api/latest.php` - the new Bleeps site, which reads the version from the
+  setup file names in `downloads/` with the same code as shackassistant.com - so uploading a setup publishes it. Only a
+  NEWER release gets a message (an older one on the site is never offered); no internet or an error stays in the log when
+  quiet. The message offers **Download page** and **Do not remind me about vX** (`[update] skip_version`; a newer release
+  speaks again, Help asks anyway). About now links to bleeps.ham4life.com as well.
+
 ## v1.0.21
 
 - **The splash shows the credit** (PA5DJ: *"put credits on the splash"* - PA5DJ and the websites): under the logo

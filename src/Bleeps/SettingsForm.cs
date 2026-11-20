@@ -10,6 +10,7 @@ internal sealed class SettingsForm : Form
     private readonly AppSettings _s;
     private readonly TextBox _call = new() { Width = 120, CharacterCasing = CharacterCasing.Upper };
     private readonly ComboBox _theme = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
+    private readonly CheckBox _update = new() { Text = "Look for a newer version at start", AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly ComboBox _in = Drop(320), _out = Drop(320);
     private readonly ComboBox _model = new() { Width = 320, DropDownStyle = ComboBoxStyle.DropDown, AutoCompleteMode = AutoCompleteMode.SuggestAppend, AutoCompleteSource = AutoCompleteSource.ListItems };
     private readonly ComboBox _port = new() { Width = 180, DropDownStyle = ComboBoxStyle.DropDown };
@@ -117,6 +118,8 @@ internal sealed class SettingsForm : Form
         Row(t, "Callsign:", _call, "Your callsign. It goes out at the start of every message (the header of Bleeps is the call).");
         _theme.Items.AddRange(AppTheme.Choices);
         Row(t, "Theme:", _theme, "System follows Windows (Settings -> Personalisation -> Colours -> app mode); Light or Dark always. Takes effect when Bleeps starts again.");
+        Row(t, "Updates:", _update, "At every start Bleeps asks " + UpdateCheck.Host.Replace("https://", "") + " whether a newer release is out. "
+                                  + "Only a newer one gets a message; no internet stays quiet. Help -> Check for updates asks at any time.");
         return t;
     }
 
@@ -283,6 +286,7 @@ internal sealed class SettingsForm : Form
     private void FillValues()
     {
         _call.Text = _s.Get("station", "callsign", "");
+        _update.Checked = _s.GetBool("update", "check_at_start", true);
         _theme.SelectedItem = AppTheme.Choices.FirstOrDefault(c => c.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase)) ?? "System";
         int i = _s.GetInt("audio", "input", 0), o = _s.GetInt("audio", "output", 0);
         if (_in.Items.Count > 0) _in.SelectedIndex = Math.Clamp(i, 0, _in.Items.Count - 1);
@@ -306,6 +310,7 @@ internal sealed class SettingsForm : Form
     private void Save()
     {
         _s.Set("station", "callsign", _call.Text.Trim().ToUpperInvariant());
+        _s.Set("update", "check_at_start", _update.Checked);
         string theme = _theme.SelectedItem as string ?? "System";
         if (!theme.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase))
         {

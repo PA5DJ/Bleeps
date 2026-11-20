@@ -71,6 +71,7 @@ Open with **File -> Settings...**.
 |---|---|
 | **Callsign** | Goes out at the start of every message, so the others see who is talking. |
 | **Theme** | **System** follows Windows (Settings -> Personalisation -> Colours -> app mode), or always **Light** or **Dark**. Takes effect when Bleeps starts again. |
+| **Updates** | **Look for a newer version at start** (on by default): asks bleeps.ham4life.com whether a newer release is out. Only a newer one gets a message, with **Download page** and **Do not remind me about vX**; no internet stays quiet. **Help -> Check for updates...** asks at any time. |
 | **Audio input** | The sound card input that carries the radio's receive audio. |
 | **Audio output** | The sound card output that goes to the radio's data/mic input. |
 

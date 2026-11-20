@@ -79,6 +79,9 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
   model's default, grey without CI-V), PTT VOX/CAT/RTS/DTR + own PTT port, mode, TX delay/tail, poll), Frequencies (grid like
   WSJT-X: Insert/Delete/Reset).
 - `Audio.cs` - WinMM in/out + `TxPlayer` (PTT always released in the finally), without ShackAssistant's LAN audio.
+- `UpdateCheck.cs` (v1.0.22, port of ShackAssistant's): `Host` = https://bleeps.ham4life.com (the site, source in `Y:\bleeps`),
+  `/api/latest.php` -> `Parse` / `IsNewer` (only provably newer) / `IsSkipped`; `MainForm.CheckForUpdates(quiet)` at start
+  (`[update] check_at_start`) and under Help; "Do not remind me" = `[update] skip_version`. If the site moves, `Host` is the line.
 - `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`; since v1.0.3 it stays on screen ALONE for `Program.SplashMs`
   (3 s) and the main window appears only after it - before, that opened on top of it at once and the splash seemed to close
   immediately), `Log.cs` (`Documents\Bleeps\debug\Bleeps.log`), `Program.cs`.

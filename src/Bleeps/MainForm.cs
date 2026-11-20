@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.21";
+    public const string Version = "v1.0.22";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -109,6 +109,8 @@ internal sealed class MainForm : Form
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("E&xit", null, (_, _) => Close());
         var help = new ToolStripMenuItem("&Help");
+        help.DropDownItems.Add("Check for &updates…", null, (_, _) => CheckForUpdates(quiet: false));
+        help.DropDownItems.Add(new ToolStripSeparator());
         help.DropDownItems.Add("&About Bleeps", null, (_, _) => About());
         menu.Items.Add(file); menu.Items.Add(help);
         MainMenuStrip = menu;
@@ -184,6 +186,68 @@ internal sealed class MainForm : Form
             _panel.SetStatus("Set your callsign under File -> Settings -> Station");
             BeginInvoke(OpenSettings);
         }
+        else if (_settings.GetBool("update", "check_at_start", true))
+            CheckForUpdates(quiet: true);   // only a newer release says something; no internet stays quiet
+    }
+
+    private bool _updateBusy;
+
+    /// <summary>
+    /// Help -> Check for updates (quiet = false) and the check at start (quiet = true, v1.0.22). Quiet: only a newer release that
+    /// the operator did not skip gets a message - no internet, an error or "you have the newest" stay in the log.
+    /// </summary>
+    private async void CheckForUpdates(bool quiet)
+    {
+        if (_updateBusy) return;
+        _updateBusy = true;
+        try
+        {
+            if (!quiet) _panel.SetStatus("Looking for a newer version…");
+            var (found, error) = await UpdateCheck.FetchAsync();
+            if (IsDisposed) return;
+            if (found == null)
+            {
+                Log.Info("Update check: " + error);
+                if (!quiet)
+                {
+                    _panel.SetStatus("");
+                    MessageBox.Show(this, "Could not reach " + UpdateCheck.Host.Replace("https://", "") + "." + Environment.NewLine + Environment.NewLine + error,
+                                    "Check for updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return;
+            }
+            if (!UpdateCheck.IsNewer(Version, found.Version))
+            {
+                Log.Info("Update check: " + Version + " is current, the site has " + found.Label);
+                if (!quiet)
+                {
+                    _panel.SetStatus("");
+                    MessageBox.Show(this, UpdateCheck.UpToDateText(Version), "Check for updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return;
+            }
+            // "Do not remind me": at start a skipped release stays quiet; asked under Help the box comes anyway, with the tick set
+            bool skipped = UpdateCheck.IsSkipped(_settings.Get("update", "skip_version", ""), found.Version);
+            if (quiet && skipped) { Log.Info("Update check: " + found.Label + " is available, not reminded (skipped)"); return; }
+            Log.Info("Update check: " + found.Label + " is available, running " + Version);
+            _panel.SetStatus(found.Label + " is available - Help -> Check for updates");
+
+            var yes = new TaskDialogButton("Download page");
+            var page = new TaskDialogPage
+            {
+                Caption = "Bleeps", Heading = "A newer version of Bleeps is available",
+                Text = UpdateCheck.Text(found, Version), Icon = TaskDialogIcon.Information,
+                Buttons = { yes, TaskDialogButton.Close }, DefaultButton = yes,
+                Verification = new TaskDialogVerificationCheckBox("Do not remind me about " + found.Label, skipped),
+                AllowCancel = true,
+            };
+            var answer = TaskDialog.ShowDialog(this, page);
+            _settings.Set("update", "skip_version", page.Verification.Checked ? found.Version : "");
+            _settings.Save();
+            if (answer == yes) OpenUrl(UpdateCheck.PageUrl);
+        }
+        catch (Exception ex) { Log.Exception("Update check", ex); }
+        finally { _updateBusy = false; }
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -647,6 +711,7 @@ internal sealed class MainForm : Form
         }
         Line($"Bleeps {Version}", bold: true);
         Line("Chat protocol for radio amateurs - by PA5DJ");
+        Link(UpdateCheck.Host);   // the program's site: downloads, guide, protocol - and what the update check asks
         Link("https://www.ham4life.com");
         Link("https://www.pa5dj.nl");
         Line("\nThe same Bleeps as in ShackAssistant (protocol version 0).\n" + hamlib);
