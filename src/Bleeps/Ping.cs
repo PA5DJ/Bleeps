@@ -46,6 +46,22 @@ public static class Ping
         return new Parsed(kind, m.Groups[2].Value.ToUpperInvariant(), m.Groups[3].Value.ToUpperInvariant(), snr);
     }
 
+    /// <summary>
+    /// Keep this message out of the chat window (v1.0.26, PA5DJ: "ping/pong messages not shown in the chat window") - the
+    /// status line and the message box tell what happened, the chat log file still has them. While a message is still coming
+    /// in, its text may be the start of a ping ("p", "pin", "ping pa5"): kept back until it is clear. A finished message that
+    /// turned out not to be a ping ("ping me when you are on") is shown as usual.
+    /// </summary>
+    public static bool HideInChat(string? text, bool finished)
+    {
+        var t = (text ?? "").TrimStart().ToLowerInvariant();
+        if (Parse(t) != null) return true;
+        if (finished) return false;
+        if (t.Length < 5) return t.Length == 0 || "ping ".StartsWith(t, StringComparison.Ordinal) || "pong ".StartsWith(t, StringComparison.Ordinal);
+        if (!t.StartsWith("ping ", StringComparison.Ordinal) && !t.StartsWith("pong ", StringComparison.Ordinal)) return false;
+        return t.Length <= 24 && t.All(c => char.IsLetterOrDigit(c) || c is ' ' or '/' or '-' or '+');   // could still be one
+    }
+
     public enum Reply { NotForUs, Answer, AlreadyAnswered, Blacklisted, AnsweringOff }
 
     /// <summary>What to do with a complete PING from <paramref name="from"/>: answer it or not, and why not.</summary>

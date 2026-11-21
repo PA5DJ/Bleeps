@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.25";
+    public const string Version = "v1.0.26";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -584,7 +584,8 @@ internal sealed class MainForm : Form
                 Late = m.Late, Hz = m.CenterHz, SnrDb = m.SnrDb, Speed = m.Speed.Name,
                 Length = TimeSpan.FromSeconds(Math.Max(0, m.Decoder.LastHeard - m.StartSample) / (double)BleepsCode.SampleRate),
             };
-            if (sig != st.Sig) changed.Add(e);
+            // ping/pong stay out of the chat window (v1.0.26) - the status line and the message box say it, the log keeps it
+            if (sig != st.Sig && !Ping.HideInChat(m.Text, m.Finished)) changed.Add(e);
             if (m.Finished && !st.Logged)
             {
                 ChatLog(e, mine: false); st.Logged = true;
@@ -685,15 +686,15 @@ internal sealed class MainForm : Form
                 case Ping.Reply.Answer:
                     _answered[from.ToUpperInvariant() + " " + p.Id] = DateTime.UtcNow;
                     Send(Ping.PongText(from, p.Id, snrDb));
-                    _panel.SetStatus($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering");
+                    PingNote($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering");
                     Log.Info($"Ping from {from} id {p.Id} at {snrDb:0} dB - answering");
                     break;
                 case Ping.Reply.Blacklisted:                           // PA5DJ: "calls that may not ping you" - no answer, ever
-                    _panel.SetStatus($"Ping from {from} ignored (blacklist, Settings -> Station)");
+                    PingNote($"Ping from {from} ignored (blacklist, Settings -> Ping)");
                     Log.Info($"Ping from {from} id {p.Id} ignored: on the blacklist");
                     break;
                 case Ping.Reply.AnsweringOff:
-                    _panel.SetStatus($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering pings is off (Settings -> Station)");
+                    PingNote($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering pings is off (Settings -> Ping)");
                     break;
             }
             return;
@@ -703,7 +704,7 @@ internal sealed class MainForm : Form
         _pings.Remove(p.Id);
         double s = (DateTime.UtcNow - pend.Utc).TotalSeconds;
         string them = p.SnrDb is int d ? Ping.FormatDb(d) : "?";
-        _panel.SetStatus($"Ping {from}: answered after {s:0} s - {from} heard you at {them}, you hear {from} at {Ping.FormatDb(snrDb)}");
+        PingNote($"Ping {from}: answered after {s:0} s - {from} heard you at {them}, you hear {from} at {Ping.FormatDb(snrDb)}");
         Log.Info($"Pong from {from} id {p.Id}: they heard us at {them}, we hear them at {snrDb:0} dB, {s:0} s");
     }
 
@@ -712,13 +713,46 @@ internal sealed class MainForm : Form
         new(s.Get("ping", "blacklist", "").Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
              .Select(c => c.Trim().ToUpperInvariant()), StringComparer.OrdinalIgnoreCase);
 
+    private bool _noteOpen;
+    private string? _notePending;
+
+    /// <summary>
+    /// A ping event: in the status line AND in a message box that stays until OK is clicked (v1.0.26, PA5DJ: "a window where
+    /// you have to click OK to go on"). Shown AFTER the caller is done (BeginInvoke), so an automatic answer is queued first;
+    /// while the box is open the window keeps receiving and answering (a message box runs the message loop). One box at a
+    /// time: what comes in meanwhile is shown when OK is clicked (the newest).
+    /// </summary>
+    private void PingNote(string text)
+    {
+        _panel.SetStatus(text);
+        if (IsDisposed || !IsHandleCreated) return;
+        if (_noteOpen) { _notePending = text; return; }
+        _noteOpen = true;
+        BeginInvoke(() => ShowNote(text));
+    }
+
+    private void ShowNote(string text)
+    {
+        try
+        {
+            while (true)
+            {
+                if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+                MessageBox.Show(this, text, "Bleeps - Ping", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (_notePending == null || IsDisposed) break;
+                text = _notePending; _notePending = null;
+            }
+        }
+        finally { _noteOpen = false; }
+    }
+
     private void PingTimeouts()
     {
         if (_pings.Count == 0) return;
         foreach (var (id, p) in _pings.Where(kv => (DateTime.UtcNow - kv.Value.Utc).TotalSeconds > PingTimeoutS).ToList())
         {
             _pings.Remove(id);
-            _panel.SetStatus($"Ping {p.Call} ({id}): no answer within {PingTimeoutS / 60} minutes");
+            PingNote($"Ping {p.Call} ({id}): no answer within {PingTimeoutS / 60} minutes");
         }
     }
 
@@ -803,7 +837,8 @@ internal sealed class MainForm : Form
         Action<bool>? ptt = cfg.UsePtt && rig != null ? on => { if (!rig.SetPtt(on) && on) throw new InvalidOperationException("PTT did not key (" + cfg.Ptt + ")"); } : null;
         _tx.Start(samples, dev, ptt, cfg.TxDelayMs, cfg.TxTailMs);
         double txc = _panel.TxHz + sp.CenterOffset;
-        long ownId = _panel.AddOwn(call, text, txc, sp.Name);
+        // our own ping/pong is not put in the chat window either (v1.0.26); HeardBack finds no line for id 0 and does nothing
+        long ownId = Ping.Parse(text) != null ? 0 : _panel.AddOwn(call, text, txc, sp.Name);
         lock (_ownLock)
         {
             _ownSent.Add(new OwnSent(ownId, text, txc, DateTime.UtcNow, seconds));

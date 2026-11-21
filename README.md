@@ -196,9 +196,11 @@ ping dl1abc 7k          you  -> DL1ABC   (7k = a short ID)
 pong pa5dj 7k -12       DL1ABC -> you    (it heard your ping at -12 dB)
 ```
 
-The status line then says *"Ping DL1ABC: answered after 31 s - DL1ABC heard you at -12 dB, you hear DL1ABC at -8 dB"*,
-or *"no answer"* after 2 minutes. Both messages also stand in the chat. A ping takes about 15 s on the air (Normal) or 9 s
-(Fast); most of that is the call header every message has.
+A window then tells what happened - *"Ping DL1ABC: answered after 31 s - DL1ABC heard you at -12 dB, you hear DL1ABC at
+-8 dB"*, or *"no answer"* after 2 minutes - and stays until you click **OK**; the same text stands in the status line. A ping
+to you (answered, ignored or answering off) gets such a window too. Bleeps keeps receiving and answering while one is open;
+what comes in meanwhile is shown after OK. Ping and pong messages are kept out of the chat window (the chat log file still
+has them). A ping takes about 15 s on the air (Normal) or 9 s (Fast); most of that is the call header every message has.
 
 **Settings -> Ping**:
 - **Answer pings automatically** - on by default. Off: a ping to you is only shown.

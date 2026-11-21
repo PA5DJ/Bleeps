@@ -1,5 +1,20 @@
 # Bleeps Changelog
 
+## v1.0.26
+
+- **Ping events in a window you click OK on** (PA5DJ: *"a popup with the status text next to Settings"* - *"no, really a
+  window where you have to click OK to go on"*). The answer to your ping, "no answer", and a ping to you (answered, ignored
+  by the blacklist, answering off) open a message box "Bleeps - Ping" with the same text as the status line (which cut long
+  texts off with "..."). It opens after the automatic answer is queued, and Bleeps keeps receiving and answering while it is
+  open; one box at a time - what comes in meanwhile is shown after OK. "Settings -> Station" in those texts is now
+  "Settings -> Ping".
+- **Ping and pong are kept out of the chat window** (PA5DJ: *"make it so ping/pong messages are not shown in the chat
+  window"*): neither received nor our own. While a message is still coming in and could be a ping ("p", "ping pa5") it is
+  held back; one that turns out to be ordinary text ("ping me when you are on") is shown when it is clear. The chat log file
+  still has them. `Ping.HideInChat`.
+  Tested: a scripted operator - the box stays until it is closed, the second event follows after OK, the window keeps working
+  while a box is open; and 8 new checks on what is hidden or shown (ping tests now 30 of 30).
+
 ## v1.0.25
 
 - **DPI scaling checked across the whole program** (PA5DJ: *"go over the whole app for DPI scaling problems"*). Measured
