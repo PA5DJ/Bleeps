@@ -23,6 +23,23 @@ public sealed class WaveIn : IDisposable
 
     public WaveIn(int device) { _device = device; }
 
+    /// <summary>
+    /// Which device of <paramref name="devices"/> is meant (v1.0.24): the one with the saved NAME, else the saved number.
+    /// WinMM numbers the cards in the order Windows found them, so a number alone moves when a USB radio (IC-705, IC-9700 ...)
+    /// is plugged in or out - the cause of "settings not loaded right". Windows keeps two equal cards apart in the name
+    /// ("2- USB Audio CODEC"), so the name is the steadier of the two.
+    /// </summary>
+    public static int Resolve(IReadOnlyList<string> devices, string savedName, int savedIndex)
+    {
+        if (devices.Count == 0) return -1;
+        if (savedName.Length > 0)
+        {
+            int byName = devices.ToList().FindIndex(d => d.Equals(savedName, StringComparison.OrdinalIgnoreCase));
+            if (byName >= 0) return byName;
+        }
+        return Math.Clamp(savedIndex, 0, devices.Count - 1);
+    }
+
     public static List<string> Devices()
     {
         var list = new List<string>();

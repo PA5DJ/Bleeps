@@ -42,11 +42,11 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
 - **The waterfall like WSJT-X** (v1.0.1; since v1.0.4 the code is in the shared `BleepsWaterfall.cs`, INI here `[waterfall]`
   without a prefix, PA5DJ: *"it really has to go towards the resolution of WSJT-X"*): `MainForm.WaterfallStep`
   - window 65536 at 48 kHz (= 16384 at 12 kHz, 0.73 Hz), every `WfHop` (3840 = 80 ms) of new audio a spectrum, `[waterfall] avg`
-  (5) of them averaged in POWER per line, per pixel all bins added up (never pick one bin). Colour: `FloorDb` = noise + 7 + `floor`
+  (1 since v1.0.24, was 5) of them averaged in POWER per line, per pixel all bins added up (never pick one bin). Colour: `FloorDb` = noise + 7 + `floor`
   (0), `CurveDb` = `span` (30) - the Skim curve of `WaterfallPanel` starts 7 dB under FloorDb; with ShackAssistant's 11 dB every
   station went white. CeilingDb does nothing in this mode. Measured in scratchpad `bleepswf` (fake band: -10/0/+10 dB Bleeps +
   carrier).
-  - **Controls under the waterfall (v1.0.2)** like WSJT-X: Bins/Pixel (`bpp`, 4), Start (`start`, 100), N Avg (`avg`, 5 = the
+  - **Controls under the waterfall (v1.0.2)** like WSJT-X: Bins/Pixel (`bpp`, 4), Start (`start`, 100), N Avg (`avg`, 1 since v1.0.24 = the
     SPEED), Gain (`gain`: span = 30 / 10^(0.015 x Gain) dB, WSJT-X's step) and Zero (`zero`: floor -0.2 dB per step). The range
     is Start .. Start + width x Bins/Pixel x 0.73 Hz (max 6 kHz, `ApplyWfRange`, also on Resize); Bins/Pixel and Start clear the
     picture.
@@ -90,7 +90,10 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
 - `SplashForm.cs` (logo `Splash.png` = `Bleeps-emoji-waves.png`; since v1.0.3 it stays on screen ALONE for `Program.SplashMs`
   (3 s) and the main window appears only after it - before, that opened on top of it at once and the splash seemed to close
   immediately), `Log.cs` (`Documents\Bleeps\debug\Bleeps.log`), `Program.cs`.
-- Settings: `%APPDATA%\Bleeps\bleeps.ini`.
+- Settings: `%APPDATA%\Bleeps\bleeps.ini` (`Shims.AppSettings`). Since v1.0.24: read with retries; `LoadFailed` = run on
+  defaults and NEVER save over the file; every save keeps `bleeps.ini.bak`; `MainForm.Tick` saves every 30 s when `Dirty`.
+  Sound cards: save the NAME with the number (`[audio] input_name` / `output_name`) and look them up with `WaveIn.Resolve`
+  (name first) - a number alone moves when a USB radio is plugged in or out.
 - **Dark mode** (v1.0.20): `[display] theme` = System / Light / Dark -> `AppTheme.ApplyAtStart` in `Program.Main` before the
   first window (`Application.SetColorMode`, experimental API: `#pragma warning disable WFO5001`). Use SystemColors for anything
   that should follow the theme; a fixed colour needs a dark counterpart (`AppTheme.IsDark`). DataGridView headers need

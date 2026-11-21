@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.23";
+    public const string Version = "v1.0.24";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -406,8 +406,16 @@ internal sealed class MainForm : Form
         _wf.Reset();
         try
         {
-            if (WaveIn.Devices().Count == 0) { _stAudio.Text = "No audio input"; return; }
-            int dev = Math.Clamp(_settings.GetInt("audio", "input", 0), 0, WaveIn.Devices().Count - 1);
+            var ins = WaveIn.Devices();
+            if (ins.Count == 0) { _stAudio.Text = "No audio input"; return; }
+            int dev = WaveIn.Resolve(ins, _settings.Get("audio", "input_name", ""), _settings.GetInt("audio", "input", 0));
+            Log.Info($"Audio input: {dev} '{ins[dev]}'");
+            // settings from before v1.0.24 have only numbers: remember the names of the cards they point at now, so from
+            // here on a card is found by name
+            if (_settings.Get("audio", "input_name", "").Length == 0) _settings.Set("audio", "input_name", ins[dev]);
+            var outsNow = WaveOut.Devices();
+            if (outsNow.Count > 0 && _settings.Get("audio", "output_name", "").Length == 0)
+                _settings.Set("audio", "output_name", outsNow[WaveIn.Resolve(outsNow, "", _settings.GetInt("audio", "output", 0))]);
             _capture = new WaveIn(dev);
             _capture.SamplesAvailable += OnSamples;
             _capture.Failed += m => BeginInvoke(() => _stAudio.Text = "Audio: " + m);
@@ -446,6 +454,9 @@ internal sealed class MainForm : Form
         _stTx.BackColor = _tx.IsRunning ? Color.Red : SystemColors.Control;
         _stTx.ForeColor = _tx.IsRunning ? Color.White : SystemColors.ControlText;
         PingTimeouts();
+        // save what changed every 30 s (v1.0.24): before, everything set during a session - TX place, waterfall, drive,
+        // speed - waited for a clean exit and was gone after a crash or a hard stop
+        if (_settings.Dirty && (DateTime.UtcNow - _lastSave).TotalSeconds >= 30) { _lastSave = DateTime.UtcNow; _settings.Save(); }
         if (_tx.IsRunning) _panel.SetProgress(_tx.PlayedSeconds, _tx.TotalSeconds);
         if (_tx.IsRunning && !Duplex) return;       // the waterfall holds still while we send
 
@@ -575,6 +586,7 @@ internal sealed class MainForm : Form
     private readonly Dictionary<string, PendingPing> _pings = new();                    // by ID
     private readonly Dictionary<string, DateTime> _answered = new(StringComparer.OrdinalIgnoreCase);   // "CALL ID" we answered
     private const int PingTimeoutS = 120;
+    private DateTime _lastSave = DateTime.UtcNow;
 
     /// <summary>Ping a call; null = ask which one (the Ping button - the call of the TX line's "CALL:" or the last one).</summary>
     private void SendPing(string? call)
@@ -741,7 +753,7 @@ internal sealed class MainForm : Form
             for (int i = 0; i < audio.Length; i++) samples[i] = (short)Math.Clamp(audio[i] * 32767f, -32767f, 32767f);
         }
         catch (ArgumentException ex) { _panel.SetStatus("Cannot send: " + ex.Message); return; }
-        int dev = Math.Clamp(_settings.GetInt("audio", "output", 0), 0, outs.Count - 1);
+        int dev = WaveIn.Resolve(outs, _settings.Get("audio", "output_name", ""), _settings.GetInt("audio", "output", 0));
         double seconds = samples.Length / (double)BleepsCode.SampleRate;
         _tx.Volume = DriveGain;
         _panel.SetSending(true);

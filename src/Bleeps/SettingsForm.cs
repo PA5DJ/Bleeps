@@ -338,9 +338,9 @@ internal sealed class SettingsForm : Form
         foreach (var bc in MainForm.PingBlacklist(_s)) _black.Items.Add(bc);
         _update.Checked = _s.GetBool("update", "check_at_start", true);
         _theme.SelectedItem = AppTheme.Choices.FirstOrDefault(c => c.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase)) ?? "System";
-        int i = _s.GetInt("audio", "input", 0), o = _s.GetInt("audio", "output", 0);
-        if (_in.Items.Count > 0) _in.SelectedIndex = Math.Clamp(i, 0, _in.Items.Count - 1);
-        if (_out.Items.Count > 0) _out.SelectedIndex = Math.Clamp(o, 0, _out.Items.Count - 1);
+        // by NAME first (v1.0.24): a number moves when a USB card comes or goes
+        if (_in.Items.Count > 0) _in.SelectedIndex = WaveIn.Resolve(_in.Items.Cast<string>().ToList(), _s.Get("audio", "input_name", ""), _s.GetInt("audio", "input", 0));
+        if (_out.Items.Count > 0) _out.SelectedIndex = WaveIn.Resolve(_out.Items.Cast<string>().ToList(), _s.Get("audio", "output_name", ""), _s.GetInt("audio", "output", 0));
         var c = RigConfig.Load(_s);
         _model.SelectedItem = _model.Items.Cast<RigEntry>().FirstOrDefault(r => r.Model == c.Model) ?? _model.Items[0];
         _port.Text = c.Port;
@@ -371,6 +371,8 @@ internal sealed class SettingsForm : Form
         }
         _s.Set("audio", "input", Math.Max(0, _in.SelectedIndex));
         _s.Set("audio", "output", Math.Max(0, _out.SelectedIndex));
+        if (_in.SelectedItem is string inName) _s.Set("audio", "input_name", inName);
+        if (_out.SelectedItem is string outName) _s.Set("audio", "output_name", outName);
         var model = _model.SelectedItem as RigEntry
                     ?? _model.Items.Cast<RigEntry>().FirstOrDefault(r => r.Name.Equals(_model.Text, StringComparison.OrdinalIgnoreCase));
         var c = new RigConfig

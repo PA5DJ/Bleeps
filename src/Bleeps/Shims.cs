@@ -17,23 +17,39 @@ public class AppSettings
 
     public AppSettings() { Load(); }
 
+    /// <summary>The file was there but could not be read: this session runs on defaults and will NOT write them over the
+    /// real file (v1.0.24 - before, a read that failed once, e.g. a virus scanner or OneDrive holding the file, wiped the
+    /// settings at the next exit).</summary>
+    public bool LoadFailed { get; private set; }
+
     private void Load()
     {
-        try
+        if (!File.Exists(ConfigFile)) return;
+        for (int attempt = 1; ; attempt++)
         {
-            if (!File.Exists(ConfigFile)) return;
-            string section = "";
-            foreach (var raw in File.ReadAllLines(ConfigFile, Encoding.UTF8))
+            try
             {
-                var line = raw.Trim();
-                if (line.Length == 0 || line.StartsWith(';') || line.StartsWith('#')) continue;
-                if (line.StartsWith('[') && line.EndsWith(']')) { section = line[1..^1].Trim(); continue; }
-                int eq = line.IndexOf('=');
-                if (eq <= 0) continue;
-                Sec(section)[line[..eq].Trim()] = line[(eq + 1)..].Trim();
+                var lines = File.ReadAllLines(ConfigFile, Encoding.UTF8);
+                string section = "";
+                foreach (var raw in lines)
+                {
+                    var line = raw.Trim().TrimStart('﻿');                 // a BOM from another editor
+                    if (line.Length == 0 || line.StartsWith(';') || line.StartsWith('#')) continue;
+                    if (line.StartsWith('[') && line.EndsWith(']')) { section = line[1..^1].Trim(); continue; }
+                    int eq = line.IndexOf('=');
+                    if (eq <= 0) continue;
+                    Sec(section)[line[..eq].Trim()] = line[(eq + 1)..].Trim();
+                }
+                return;
+            }
+            catch (Exception ex) when (attempt < 5) { Bleeps.Log.Warn($"Reading {ConfigFile} (attempt {attempt}): {ex.Message}"); Thread.Sleep(200); }
+            catch (Exception ex)
+            {
+                LoadFailed = true;
+                Bleeps.Log.Error($"Reading {ConfigFile} failed: {ex.Message} - running on defaults, the file is left as it is");
+                return;
             }
         }
-        catch { /* an unreadable file = the defaults */ }
     }
 
     private Dictionary<string, string> Sec(string s)
@@ -77,9 +93,12 @@ public class AppSettings
 
     public void Save()
     {
+        if (LoadFailed) { Bleeps.Log.Warn("Settings not saved: the file could not be read at start, so it is not overwritten"); return; }
         try
         {
             Directory.CreateDirectory(Folder);
+            // keep the previous version next to it (bleeps.ini.bak) - one bad write never costs everything
+            if (File.Exists(ConfigFile)) { try { File.Copy(ConfigFile, ConfigFile + ".bak", overwrite: true); } catch { } }
             var sb = new StringBuilder();
             lock (_lock)
             {

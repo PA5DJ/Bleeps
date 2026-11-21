@@ -59,7 +59,7 @@ internal sealed class BleepsWaterfall
         _wf = wf; _s = s; _section = section; _prefix = prefix;
         _bpp.Value = Math.Clamp(s.GetInt(section, prefix + "bpp", 4), 1, 10);
         _start.Value = Math.Clamp(s.GetInt(section, prefix + "start", 100), 0, 4000);
-        _avg.Value = Math.Clamp(s.GetInt(section, prefix + "avg", 5), 1, 20);
+        _avg.Value = Math.Clamp(s.GetInt(section, prefix + "avg", 1), 1, 20);   // default 1 since v1.0.24 (PA5DJ: "set N Avg default to 1")
         _gain.Value = Math.Clamp(s.GetInt(section, prefix + "gain", 0), -50, 50);
         _zero.Value = Math.Clamp(s.GetInt(section, prefix + "zero", 0), -50, 50);
 
@@ -73,7 +73,7 @@ internal sealed class BleepsWaterfall
         }
         Add("Bins/Pixel", _bpp, "How many 0.73 Hz bins go into one pixel (WSJT-X: Bins/Pixel). 1 = the finest; higher shows more of the band. The width of the window decides how far it reaches.");
         Add("Start", _start, "The lowest audio frequency on the left, in Hz (WSJT-X: Start).");
-        Add("N Avg", _avg, "The speed of the waterfall (WSJT-X: N Avg): how many spectra (one per 80 ms) are averaged into one line. Lower = faster and more speckle; higher = slower and calmer. 5 = a line every 0.4 s.");
+        Add("N Avg", _avg, "The speed of the waterfall (WSJT-X: N Avg): how many spectra (one per 80 ms) are averaged into one line. Lower = faster and more speckle; higher = slower and calmer. 1 (the default) = a line every 80 ms, 5 = every 0.4 s.");
         Add("Gain", _gain, "Contrast (WSJT-X: Gain): to the right the colours climb faster, so weaker signals already look bright.");
         Add("Zero", _zero, "Brightness (WSJT-X: Zero): to the right the whole picture gets brighter, the noise too.");
         Bar.Controls.Add(_range);

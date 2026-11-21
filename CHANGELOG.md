@@ -1,5 +1,27 @@
 # Bleeps Changelog
 
+## v1.0.24
+
+- **Settings are kept and loaded reliably** (PA5DJ: *"check save and load of the settings - I often notice settings are not
+  kept or loaded right at start; check --rig too"*). Three causes found and fixed:
+  - **Sound cards were saved by NUMBER only.** WinMM numbers the cards in the order Windows found them, so plugging a USB
+    radio (IC-705, IC-9700 ...) in or out made the saved number point at another card. Now the NAME is saved too
+    (`[audio] input_name` / `output_name`) and a card is found by name first, the number only as a fallback
+    (`WaveIn.Resolve`). Settings from before get the names of the cards they point at now, at the first start.
+  - **Everything set during a session waited for a clean exit** (TX place, waterfall, drive, speed ...) and was gone after a
+    crash or a hard stop. Now saved every 30 s when something changed.
+  - **A settings file that could not be read at start was overwritten with defaults at exit** (e.g. a virus scanner or
+    OneDrive holding it for a moment). Now: 5 tries over a second; if it still fails, Bleeps runs on defaults and does NOT
+    write over the file (logged). Every save also keeps the previous version as `bleeps.ini.bak`. A BOM from another editor
+    is read too.
+  - `--rig` checked: settings, frequency list, logs and chat logs all go through `Instance.FolderName`; two names write two
+    files, the name is case-insensitive, the plain Bleeps settings are not touched. Nothing wrong found there.
+- **N Avg defaults to 1** (PA5DJ: *"set N Avg default to 1"*): a waterfall line every 80 ms. A value saved earlier stays.
+  Tested (scratchpad `settest`): round trip of every kind of value, no .tmp left, .bak, BOM, a locked file (defaults, file not
+  overwritten) and a briefly locked one (read on a retry), finding cards by name (moved, any case, gone, old settings, too
+  high, none), two `--rig` names in two processes, case-insensitive name, plain settings untouched, the real main window
+  saving a change within 30 s without closing, and old settings getting the card names - 20 of 20.
+
 ## v1.0.23
 
 - **Ping** (PA5DJ: *"a Ping option: it sends a message to a callsign, the other station answers with a short confirmation; a

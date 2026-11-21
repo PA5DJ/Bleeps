@@ -161,7 +161,7 @@ The controls under the waterfall are the ones from WSJT-X:
 |---|---|
 | **Bins/Pixel** | Horizontal zoom: how many frequency bins one pixel holds. Clears the picture. |
 | **Start** | The audio frequency (Hz) at the left edge. Clears the picture. |
-| **N Avg** | How many spectra are averaged per line - the **speed** of the waterfall (higher = slower, smoother). |
+| **N Avg** | How many spectra are averaged per line - the **speed** of the waterfall (higher = slower, smoother). Default 1: a line every 80 ms. |
 | **Gain** | Contrast: higher makes weak signals stand out more. |
 | **Zero** | Moves the noise floor up or down (brightness). |
 
