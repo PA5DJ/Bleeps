@@ -74,8 +74,8 @@ internal sealed class SettingsForm : Form
         fp.Controls.Add(FrequencyPage());
         tabs.TabPages.Add(fp);
 
-        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true, MinimumSize = new Size(80, 0) };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true, MinimumSize = new Size(80, 0) };
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0) };
+        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0) };
         var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(6) };
         buttons.Controls.Add(cancel); buttons.Controls.Add(ok);
         AcceptButton = ok; CancelButton = cancel; _okButton = ok;
@@ -140,8 +140,8 @@ internal sealed class SettingsForm : Form
         t.Controls.Add(new Label { Text = "Blacklist - calls whose pings are never answered:", AutoSize = true, Margin = new Padding(3, 3, 3, 4) }, 0, 1);
         t.SetColumnSpan(t.GetControlFromPosition(0, 1)!, 2);
 
-        var add = new Button { Text = "Add", AutoSize = true, MinimumSize = new Size(80, 0) };
-        var remove = new Button { Text = "Remove", AutoSize = true, MinimumSize = new Size(80, 0), Enabled = false };
+        var add = new Button { Text = "Add", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0) };
+        var remove = new Button { Text = "Remove", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0), Enabled = false };
         void Add()
         {
             foreach (var c in _blackCall.Text.Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
@@ -265,9 +265,9 @@ internal sealed class SettingsForm : Form
         _tips.SetToolTip(_grid, "The frequencies behind the band buttons and the band list. Right-click: Insert, Delete, Reset. Double-click a cell to edit.");
         FillGrid(Frequencies);
 
-        var add = new Button { Text = "Insert…", AutoSize = true };
+        var add = new Button { Text = "Insert…", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0) };
         add.Click += (_, _) => Insert();
-        var del = new Button { Text = "Delete", AutoSize = true };
+        var del = new Button { Text = "Delete", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0) };
         del.Click += (_, _) => { foreach (DataGridViewRow r in _grid.SelectedRows) _grid.Rows.Remove(r); };
         var bar = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true };
         bar.Controls.Add(add); bar.Controls.Add(del);
@@ -294,11 +294,13 @@ internal sealed class SettingsForm : Form
                                  Padding = new Padding(10), Font = Font };
         var t = new TableLayoutPanel { AutoSize = true, ColumnCount = 1 };
         var box = new TextBox { Width = 200 };
-        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true };
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0) };
         t.Controls.Add(new Label { Text = prompt, AutoSize = true });
         t.Controls.Add(box); t.Controls.Add(ok);
         f.Controls.Add(t);
         f.AcceptButton = ok;
+        UITheme.ScaleFromDesign(f);
+        UITheme.Apply(f);
         return f.ShowDialog(this) == DialogResult.OK ? box.Text : null;
     }
 

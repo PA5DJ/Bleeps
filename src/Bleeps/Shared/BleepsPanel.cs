@@ -25,8 +25,10 @@ internal sealed class BleepsPanel : UserControl
     private readonly AppSettings _settings;
     private readonly ChatView _chat;
     private readonly TextBox _txt;
-    private readonly Button _btnSend, _btnStop, _btnFree, _btnSettings, _btnNew, _btnEmoji;
+    private readonly Button _btnSend, _btnStop, _btnFree, _btnSettings, _btnNew;
+    private readonly EmojiButton _btnEmoji;
     private ToolStripDropDown? _emojiDrop;
+    private int _emojiDropDpi;   // the DPI the picker was built at: on another screen it is built again
     // the picker's own tooltip: ShowAlways, because a drop-down never becomes the active window and a ToolTip only shows in
     // an active one (v1.0.739, PA5DJ: "then the tooltips don't work")
     private readonly ToolTip _emojiTips = new() { ShowAlways = true, InitialDelay = 250, ReshowDelay = 50, AutoPopDelay = 10000 };
@@ -51,17 +53,19 @@ internal sealed class BleepsPanel : UserControl
         _chat.NewBelow = n => { _btnNew!.Text = $"▼ {n} new"; _btnNew.Visible = n > 0; };
         _chat.RemoveWaiting = i => RemoveQueued?.Invoke(i);
 
-        _btnNew = new Button { Text = "▼ new", AutoSize = true, Visible = false, Anchor = AnchorStyles.Bottom | AnchorStyles.Right, FlatStyle = FlatStyle.System };
+        _btnNew = new Button { Text = "▼ new", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Visible = false, Anchor = AnchorStyles.Bottom | AnchorStyles.Right, FlatStyle = FlatStyle.System };
         _btnNew.Click += (_, _) => _chat.ScrollToEnd();
         _tips.SetToolTip(_btnNew, "New messages below - jump to the newest.");
         var rxHost = new Panel { Dock = DockStyle.Fill };
         rxHost.Controls.Add(_btnNew);
         rxHost.Controls.Add(_chat);
-        rxHost.Resize += (_, _) => _btnNew.Location = new Point(rxHost.ClientSize.Width - _btnNew.Width - 22, rxHost.ClientSize.Height - _btnNew.Height - 6);
+        rxHost.Resize += (_, _) => _btnNew.Location = new Point(rxHost.ClientSize.Width - _btnNew.Width - rxHost.LogicalToDeviceUnits(22),
+                                                                rxHost.ClientSize.Height - _btnNew.Height - rxHost.LogicalToDeviceUnits(6));
         _btnNew.BringToFront();
 
         // ── the TX line: one line, Enter = send, Esc = stop ──
-        _txt = new TextBox { Dock = DockStyle.Fill, Font = new Font("Arial", 11), MaxLength = 1000 };
+        // anchored left and right, not docked: centred in the row like the buttons beside it
+        _txt = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Arial", 11), MaxLength = 1000 };
         _txt.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; Send(); }
@@ -70,22 +74,24 @@ internal sealed class BleepsPanel : UserControl
         _txt.TextChanged += (_, _) => { EmojiWhileTyping(); UpdateCount(); };
         _tips.SetToolTip(_txt, "Type a message and press Enter to send it. Esc stops sending. While one goes out you can type the next.");
         // emoji (v1.0.736): the picker; typing :) or :beer: works too, and the chat shows the emoji
-        _btnEmoji = new Button { AutoSize = false, Size = new Size(LogicalToDeviceUnits(34), LogicalToDeviceUnits(26)), Anchor = AnchorStyles.Left,
-                                 FlatStyle = FlatStyle.Standard, UseMnemonic = false, ImageAlign = ContentAlignment.MiddleCenter,
-                                 Image = Helpers.Audio.Bleeps.BleepsEmoji.Picture("🙂", LogicalToDeviceUnits(18)) };
-        if (_btnEmoji.Image == null) { _btnEmoji.Text = "🙂"; _btnEmoji.Font = new Font("Segoe UI Emoji", 10); }
-        _btnEmoji.Click += (_, _) => ShowEmoji();
-        _tips.SetToolTip(_btnEmoji, "Emoji: click one to put it in the TX line. You can also type :) ;) :D <3 or a code like :beer: - hover an emoji to see its code. Each goes out in its shortest form.");
-        _btnSend = new Button { Text = "Send", AutoSize = true, FlatStyle = FlatStyle.System };
+        // AutoSizeMode GrowAndShrink on every text button: with the default GrowOnly a button kept the size the window's DPI
+        // scaling gave its default size (Send 82 px high at 200 % beside a 41 px TX line, Bleeps v1.0.25)
+        _btnSend = new Button { Text = "Send", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0), FlatStyle = FlatStyle.System, Anchor = AnchorStyles.Left };
         _btnSend.Click += (_, _) => Send();
         _tips.SetToolTip(_btnSend, "Send the line (Enter).");
-        _btnStop = new Button { Text = "Stop", AutoSize = true, FlatStyle = FlatStyle.System, Enabled = false };
+        // exactly as high as Send and Stop at every DPI (Bleeps v1.0.25, PA5DJ: "make the emoji button as high as the Send and
+        // Stop buttons"): it asks Send for its height at every layout instead of having a size of its own - the fixed 34 x 26
+        // set here was scaled twice by the window (136 x 104 px at 200 %)
+        _btnEmoji = new EmojiButton(_btnSend) { Anchor = AnchorStyles.Left };
+        _btnEmoji.Click += (_, _) => ShowEmoji();
+        _tips.SetToolTip(_btnEmoji, "Emoji: click one to put it in the TX line. You can also type :) ;) :D <3 or a code like :beer: - hover an emoji to see its code. Each goes out in its shortest form.");
+        _btnStop = new Button { Text = "Stop", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0), FlatStyle = FlatStyle.System, Enabled = false, Anchor = AnchorStyles.Left };
         _btnStop.Click += (_, _) => StopRequested?.Invoke();
         _tips.SetToolTip(_btnStop, "Stop sending now (Esc). The others see the message end with ⚠.");
 
         _lblTx = new Label { AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Arial", 9, FontStyle.Bold) };
         _tips.SetToolTip(_lblTx, "Where you send: the lowest of the four tones. Click in the waterfall to move it.");
-        _btnFree = new Button { Text = "Free spot", AutoSize = true, FlatStyle = FlatStyle.System };
+        _btnFree = new Button { Text = "Free spot", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0), Anchor = AnchorStyles.Left, FlatStyle = FlatStyle.System };
         _btnFree.Click += (_, _) =>
         {
             if (FreeSpotSource?.Invoke() is { } hz) { SetTxHz(hz); SetStatus($"Free spot: {hz:0} Hz"); }
@@ -97,7 +103,7 @@ internal sealed class BleepsPanel : UserControl
         _tips.SetToolTip(_chkAuto, "Auto free spot: at every Send the program checks your place first. Still free: it stays (so the others find you). Taken or busy: it moves to the quietest place, then sends.");
         _lblCount = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
         _tips.SetToolTip(_lblCount, $"How much of a message is used: at most {Helpers.Audio.Bleeps.BleepsCode.MaxTextBytes} bytes (an accent or € takes 2-3).");
-        _btnSettings = new Button { Text = "Settings…", AutoSize = true, FlatStyle = FlatStyle.System };
+        _btnSettings = new Button { Text = "Settings…", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0), Anchor = AnchorStyles.Left, FlatStyle = FlatStyle.System };
         _btnSettings.Click += (_, _) =>
         {
             using var f = new BleepsSettingsForm(_settings);
@@ -115,7 +121,9 @@ internal sealed class BleepsPanel : UserControl
             UpdateTxLabel(); TxHzChanged?.Invoke(_txHz);
         };
         _tips.SetToolTip(_cboSpeed, "How fast you send. Normal: ~3 characters/s, ~83 Hz wide, the most robust. Fast: twice as fast, ~166 Hz wide. Both are always received.");
-        _lblStatus = new Label { AutoSize = false, Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft };
+        // stretched sideways only, with a height of its own (design units, the window scales it once): docked Fill it made the
+        // line 94 px high at 200 % - the table measured it at the height it had just stretched it to (Bleeps v1.0.25)
+        _lblStatus = new Label { AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Height = 20 };
 
         var line1 = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5, Padding = new Padding(0, 4, 0, 0) };
         line1.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -131,7 +139,7 @@ internal sealed class BleepsPanel : UserControl
 
         // the second line holds still: fixed columns, the status text ends in "..." (the lesson of v1.0.688)
         // Ping (v1.0.23, Bleeps): a short "do you hear me?" to one call, which answers by itself
-        var btnPing = new Button { Text = "Ping…", AutoSize = true, FlatStyle = FlatStyle.System };
+        var btnPing = new Button { Text = "Ping…", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0), Anchor = AnchorStyles.Left, FlatStyle = FlatStyle.System };
         btnPing.Click += (_, _) => PingRequested?.Invoke(null);
         _tips.SetToolTip(btnPing, "Ping a station: a short message to one call; its Bleeps answers by itself with how strong it heard you. You can also right-click a call in the chat.");
 
@@ -147,7 +155,6 @@ internal sealed class BleepsPanel : UserControl
         line2.Controls.Add(_bar, 6, 0);
         line2.Controls.Add(_btnSettings, 7, 0);
         line2.Controls.Add(_lblStatus, 8, 0);
-        line2.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
 
         var tx = new Panel { Dock = DockStyle.Bottom, Height = 70 };
         tx.Controls.Add(line2);
@@ -261,7 +268,9 @@ internal sealed class BleepsPanel : UserControl
     {
         get
         {
-            if (_emojiDrop != null) return _emojiDrop;
+            if (_emojiDrop != null && _emojiDropDpi == DeviceDpi) return _emojiDrop;
+            _emojiDrop?.Dispose(); _emojiDrop = null;   // built on a screen with another DPI: its sizes and pictures are wrong here
+            _emojiDropDpi = DeviceDpi;
             int D(int v) => LogicalToDeviceUnits(v);
             var flow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight,
                                              MaximumSize = new Size(D(16 * 34 + 8), 0), Padding = new Padding(D(4)), BackColor = AppTheme.Field };
@@ -310,6 +319,45 @@ internal sealed class BleepsPanel : UserControl
 }
 
 /// <summary>
+/// The emoji button beside Send (Bleeps v1.0.25): AutoSize, but its preferred size is Send's preferred HEIGHT and a little
+/// wider than that - so it is always exactly as high as Send and Stop, at any DPI, on any screen and after a DPI change,
+/// without a size of its own that the window's scaling could get wrong. The picture follows the height.
+/// </summary>
+internal sealed class EmojiButton : Button
+{
+    private readonly Button _like;
+    private int _picPx;
+
+    public EmojiButton(Button like)
+    {
+        _like = like;
+        AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        FlatStyle = FlatStyle.Standard; UseMnemonic = false; ImageAlign = ContentAlignment.MiddleCenter;
+        Padding = Padding.Empty;
+        UpdatePicture();
+    }
+
+    public override Size GetPreferredSize(Size proposedSize)
+    {
+        int h = _like.GetPreferredSize(Size.Empty).Height;
+        return new Size(Math.Max(h, (int)Math.Round(h * 1.25)), h);
+    }
+
+    protected override void OnSizeChanged(EventArgs e) { base.OnSizeChanged(e); UpdatePicture(); }
+
+    /// <summary>The smiley about 70 % of the height (17 px in a 24 px button at 100 %); Segoe UI Emoji when the picture is missing.</summary>
+    private void UpdatePicture()
+    {
+        int px = Math.Max(12, (int)Math.Round(Height * 0.7));
+        if (px == _picPx) return;
+        _picPx = px;
+        var pic = Helpers.Audio.Bleeps.BleepsEmoji.Picture("🙂", px);   // kept by BleepsEmoji - never disposed here
+        if (pic != null) { Image = pic; Text = ""; }
+        else { Image = null; Text = "🙂"; Font = new Font("Segoe UI Emoji", 10); }
+    }
+}
+
+/// <summary>
 /// The chat: a line per message, growing while it comes in. Time (UTC, never a date), the call in the station's own colour,
 /// the text in the same colour, ✓ or ⚠ at the end. Hz and dB where Bleeps Settings puts them - by default only on
 /// mouse-over. Click a call: it goes into the TX line. Right-click: TX next to him, or another colour.
@@ -350,7 +398,11 @@ internal sealed class ChatView : Control
     private readonly Dictionary<string, Color> _colours = new(StringComparer.OrdinalIgnoreCase);
     private long _own = -1;
     private int _newBelow;
-    private Font _font = new("Arial", 10), _bold = new("Arial", 10, FontStyle.Bold);
+    // in PIXELS for this control's own DPI (Bleeps v1.0.25): a font in points is sized for the DPI Windows started with, so on a
+    // second screen with another scaling the chat kept the size of the first one - rebuilt in OnDpiChangedAfterParent
+    private Font _font = null!, _bold = null!;
+    private int _fontDpi;
+    private int Px(int logical) => LogicalToDeviceUnits(logical);
     // layout, per entry: its lines (start char), y and height
     private readonly List<(Entry E, int Y, int H, Rectangle CallRect, List<string> Lines)> _layout = new();
     private int _total;
@@ -380,10 +432,35 @@ internal sealed class ChatView : Control
         Controls.Add(_sb);
         _sb.Scroll += (_, _) => { if (AtEnd) { _newBelow = 0; NewBelow?.Invoke(0); } Invalidate(); };
         MouseWheel += (_, e) => ScrollBy(-e.Delta / 120 * 3 * LineH);
+        MakeFonts();
         ReloadOptions();
     }
 
-    private int LineH => (int)Math.Ceiling(_font.GetHeight()) + 2;
+    /// <summary>Arial 10 (and bold) at this control's DPI, in pixels: 10 pt = 10/72 inch at DeviceDpi.</summary>
+    private void MakeFonts()
+    {
+        if (_fontDpi == DeviceDpi && _font != null) return;
+        _fontDpi = DeviceDpi;
+        var (f, b) = (_font, _bold);
+        _font = new Font("Arial", 10f * DeviceDpi / 72f, FontStyle.Regular, GraphicsUnit.Pixel);
+        _bold = new Font("Arial", 10f * DeviceDpi / 72f, FontStyle.Bold, GraphicsUnit.Pixel);
+        f?.Dispose(); b?.Dispose();
+    }
+
+    protected override void OnDpiChangedAfterParent(EventArgs e)
+    {
+        base.OnDpiChangedAfterParent(e);
+        MakeFonts();
+        bool end = AtEnd; Relayout(); if (end) ScrollToEnd(); Invalidate();
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        if (_fontDpi != DeviceDpi) { MakeFonts(); Relayout(); }   // created on a screen other than the one Windows started on
+    }
+
+    private int LineH => (int)Math.Ceiling(_font.GetHeight()) + Px(2);
     private bool AtEnd => _sb.Value >= Math.Max(0, _sb.Maximum - _sb.LargeChange + 1) - 2;
 
     public void ReloadOptions()
@@ -484,7 +561,7 @@ internal sealed class ChatView : Control
     private string AfterCall(Entry e) => string.Join("  ", new[] { _showHz == "call" ? HzText(e) : null, _showDb == "call" ? DbText(e) : null }.Where(s => !string.IsNullOrEmpty(s)));
     private string AtEndOf(Entry e) => string.Join("  ", new[] { _showHz == "end" ? HzText(e) : null, _showDb == "end" ? DbText(e) : null }.Where(s => !string.IsNullOrEmpty(s)));
 
-    private int TimeW => TextRenderer.MeasureText("00:00:00", _font).Width + 6;
+    private int TimeW => TextRenderer.MeasureText("00:00:00", _font).Width + Px(6);
 
     // ── text with Twemoji pictures (v1.0.737): an emoji of the set is a square picture the height of the font ──
     private int EmojiPx => Math.Max(10, (int)Math.Round(_font.GetHeight()));
@@ -515,14 +592,14 @@ internal sealed class ChatView : Control
             }
         }
     }
-    private int CallW => TextRenderer.MeasureText("DL/PA5DJ/P", _bold).Width + 8;
+    private int CallW => TextRenderer.MeasureText("DL/PA5DJ/P", _bold).Width + Px(8);
 
     private void Relayout()
     {
         _layout.Clear();
         int y = 0, lh = LineH;
         int textX = TimeW + CallW;
-        int width = Math.Max(80, ClientSize.Width - _sb.Width - textX - 8);
+        int width = Math.Max(80, ClientSize.Width - _sb.Width - textX - Px(8));
         foreach (var e in _entries.Concat(_waiting))
         {
             string body = Helpers.Audio.Bleeps.BleepsEmoji.Render(e.Text);   // :) and :beer: as the emoji (v1.0.736)
@@ -595,13 +672,13 @@ internal sealed class ChatView : Control
             if (e.Waiting > 0)
             {
                 // a queued line: greyed, "waiting" where the time stands and its place where the call stands
-                TextRenderer.DrawText(g, "waiting", _font, new Point(2, yy), dim, TextFormatFlags.NoPadding);
+                TextRenderer.DrawText(g, "waiting", _font, new Point(Px(2), yy), dim, TextFormatFlags.NoPadding);
                 TextRenderer.DrawText(g, $"#{e.Waiting}", _bold, new Point(TimeW, yy), dim, TextFormatFlags.NoPadding);
                 for (int i = 0; i < lines.Count; i++)
                     DrawRich(g, lines[i], new Point(textX, yy + i * lh), dim);
                 continue;
             }
-            TextRenderer.DrawText(g, e.Utc.ToString("HH:mm:ss"), _font, new Point(2, yy), dim, TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(g, e.Utc.ToString("HH:mm:ss"), _font, new Point(Px(2), yy), dim, TextFormatFlags.NoPadding);
             TextRenderer.DrawText(g, e.Call ?? "?", _bold, new Point(TimeW, yy), col, TextFormatFlags.NoPadding);
             for (int i = 0; i < lines.Count; i++)
                 DrawRich(g, lines[i], new Point(textX, yy + i * lh), col);

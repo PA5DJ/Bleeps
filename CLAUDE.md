@@ -98,6 +98,16 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
   first window (`Application.SetColorMode`, experimental API: `#pragma warning disable WFO5001`). Use SystemColors for anything
   that should follow the theme; a fixed colour needs a dark counterpart (`AppTheme.IsDark`). DataGridView headers need
   `EnableHeadersVisualStyles = false` + own header colours, or they stay light.
+- **DPI scaling** (v1.0.25, measured at 200 % on PA5DJ's screen, scratchpad harness `dpi`): the windows use
+  `AutoScaleMode.Dpi` from 96 and scale EVERYTHING in the tree at the constructor's `ResumeLayout`/`PerformLayout`. So:
+  sizes written in a constructor (before that point, the BleepsPanel included) are design units - never `LogicalToDeviceUnits`
+  there, or it is scaled twice (the old band and emoji buttons: 4x). Controls made later (band buttons after Settings, the
+  emoji picker, menus) use `LogicalToDeviceUnits`. Text buttons: `AutoSize` + `AutoSizeMode.GrowAndShrink` (+ a
+  `MinimumSize` width), never the default GrowOnly (82 px high at 200 %). A non-AutoSize control needs a size of its own -
+  its default size is DPI-scaled at creation and then again. ToolStrip item widths are not scaled: measure them
+  (`MainForm.SizeStatus`). Small dialogs built in code: `UITheme.ScaleFromDesign(f)`. Fonts a control draws itself: pixels at
+  `DeviceDpi` (`ChatView.MakeFonts`, `WaterfallPanel.ArialAtDpi`), rebuilt in `OnDpiChangedAfterParent`. The emoji button
+  takes Send's preferred height (`EmojiButton`). Test 100 % with the harness DPI-unaware.
 - **`--rig NAME`** (v1.0.8, like WSJT-X's `--rig-name`): `Instance.cs` - its own `%APPDATA%\Bleeps - NAME`,
   `Documents\Bleeps - NAME`, mutex and title. A new place that uses a folder or a fixed name: take `Instance.FolderName` /
   `Instance.Suffix`, never "Bleeps" literally, or the sessions get mixed up.

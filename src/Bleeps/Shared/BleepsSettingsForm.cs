@@ -62,8 +62,8 @@ internal sealed class BleepsSettingsForm : Form
         tips.SetToolTip(_duplex, "The decoder and the waterfall keep running while a message goes out. On QO-100 you then see your own signal come back: ↩ ✓ on your own line. Leave it off with one HF rig - its receiver is muted while sending.");
         tips.SetToolTip(_threads, "How many processor cores the decoders may use at once. Auto leaves one free for the waterfall and the rest of the program.");
 
-        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0) };
+        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0) };
         var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(0, 8, 0, 0) };
         buttons.Controls.Add(cancel); buttons.Controls.Add(ok);
         AcceptButton = ok; CancelButton = cancel;

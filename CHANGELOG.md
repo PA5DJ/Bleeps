@@ -1,5 +1,32 @@
 # Bleeps Changelog
 
+## v1.0.25
+
+- **DPI scaling checked across the whole program** (PA5DJ: *"go over the whole app for DPI scaling problems"*). Measured
+  on a 200 % screen (scratchpad harness `dpi`: every control's size in the main window, Settings, Bleeps Settings, Ping, About,
+  Insert a frequency and the splash, plus screenshots), and again at 100 %: every size at 200 % is now exactly twice the one
+  at 100 %. Found and fixed:
+  - **The emoji button is exactly as high as Send and Stop** (PA5DJ: *"make the emoji button as high as the Send and Stop
+    buttons in general"*). It was 136 x 104 px at 200 % (scaled twice) beside an 82 px Send. Now it asks Send for its
+    height at every layout, so it matches at any DPI and after moving to another screen; the smiley follows the height.
+  - **Band buttons scaled twice at start**: 232 x 104 px at 200 %, and 116 x 52 after Settings. They are now built after
+    the window has scaled itself: the same size always.
+  - **Buttons too big**: every text button (Send, Stop, Free spot, Ping…, Settings…, OK, Cancel, Add, Remove, Insert…,
+    Delete) kept the size that DPI scaling gave its default size - 82 px high at 200 % where 41 is right. They now fit their
+    text, with the usual minimum width.
+  - **The line under the TX line** was 94 px high at 200 % (the status text was docked and stretched itself); now as high
+    as its buttons.
+  - **Status bar**: "Audio in -40 dBFS" was cut off (a fixed 130 px); the fields are now measured in their own font.
+  - **Ping, About and Insert a frequency** did not scale: the call box was half as wide at 200 % and the About text wrapped
+    at half its width.
+  - **A second screen with other scaling**: the chat text and the waterfall labels kept the size of the screen Windows
+    started on; they now follow the screen the window is on (the emoji picker is built again there too). Not tried on a
+    real second screen - there is only one here.
+  - **Window size after changing Windows' scaling**: the size is saved with its DPI (`[window] dpi`); after going from 100 %
+    to 200 % the window came back half as big.
+  - **The chat keeps room**: in the smallest window (or when the band buttons wrap to a second row) the waterfall took all
+    the height and the chat was gone; the waterfall now gives way down to a minimum.
+
 ## v1.0.24
 
 - **Settings are kept and loaded reliably** (PA5DJ: *"check save and load of the settings - I often notice settings are not

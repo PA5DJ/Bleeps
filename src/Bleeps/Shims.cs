@@ -171,4 +171,16 @@ public static class UITheme
     {
         if (c is Form f && AppIcon != null) f.Icon = AppIcon;
     }
+
+    /// <summary>
+    /// For a small dialog built in code (Ping, About, Insert a frequency): its sizes are written for 96 dpi, and this scales them
+    /// to the screen once, the way the big windows do it (Bleeps v1.0.25 - a 140 px call box was 70 px wide at 200 %, the About
+    /// text wrapped at half its width). Call it once, after the controls are added; never on a window that already scales.
+    /// </summary>
+    public static void ScaleFromDesign(Form f)
+    {
+        f.AutoScaleDimensions = new SizeF(96F, 96F);
+        f.AutoScaleMode = AutoScaleMode.Dpi;
+        f.PerformLayout();
+    }
 }

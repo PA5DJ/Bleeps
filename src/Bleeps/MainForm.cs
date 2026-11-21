@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.24";
+    public const string Version = "v1.0.25";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -34,6 +34,7 @@ internal sealed class MainForm : Form
     private readonly WaterfallPanel _waterfall = new() { Dock = DockStyle.Fill, MinHz = 100, MaxHz = 3000 };
     private readonly TrackBar _drive = new() { Orientation = Orientation.Vertical, Minimum = 0, Maximum = 450, TickFrequency = 50, Dock = DockStyle.Right, Width = 45 };
     private readonly ToolTip _tips = new() { AutoPopDelay = 20000 };
+    private Panel _wfHost = null!;
 
     // status
     private readonly ToolStripStatusLabel _stRig = new() { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
@@ -133,7 +134,7 @@ internal sealed class MainForm : Form
         _band.DropDown += (_, _) => FillBandList();
 
         // ── waterfall + TX drive ──
-        var wfHost = new Panel { Dock = DockStyle.Bottom, Height = 262, Padding = new Padding(4, 2, 4, 2) };
+        var wfHost = _wfHost = new Panel { Dock = DockStyle.Bottom, Height = 262, Padding = new Padding(4, 2, 4, 2) };
         var split = new Splitter { Dock = DockStyle.Bottom, Height = 5, MinExtra = 200, MinSize = 100 };
         var driveHost = new Panel { Dock = DockStyle.Right, Width = 54 };
         var driveLabel = new Label { Dock = DockStyle.Top, Height = 32, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8) };
@@ -164,13 +165,44 @@ internal sealed class MainForm : Form
         Controls.Add(status);
         _panel.BringToFront();
 
-        BuildBandButtons();
-        ShowRig(_rigState);
         _ui.Tick += (_, _) => Tick();
         ResumeLayout(false);
-        PerformLayout();
+        PerformLayout();   // the window scales everything above from 96 dpi to the screen HERE
+        // the band buttons only now (Bleeps v1.0.25): they are sized in device pixels (they are built again after Settings), and
+        // built before the scaling above they were scaled a second time - 232 x 104 px at 200 % at start, 116 x 52 after Settings
+        BuildBandButtons();
+        ShowRig(_rigState);
+        SizeStatus();
         UITheme.Apply(this);
         RestoreWindow();
+    }
+
+    /// <summary>The fixed-width status fields, measured in the status bar's font (Bleeps v1.0.25): the window's scaling does not
+    /// reach a ToolStrip item, so "Audio in -40 dBFS" was cut off at 130 px at 200 %.</summary>
+    private void SizeStatus()
+    {
+        var font = _stAudio.Font;
+        int pad = LogicalToDeviceUnits(12);
+        _stAudio.Width = new[] { "Audio in -99 dBFS", "Audio input failed", "No audio input" }.Max(t => TextRenderer.MeasureText(t, font).Width) + pad;
+        _stTx.Width = Math.Max(TextRenderer.MeasureText("TX", font).Width + pad, LogicalToDeviceUnits(60));
+    }
+
+    /// <summary>The chat keeps room (Bleeps v1.0.25): in a small window - or at 200 % when the band buttons wrap to a second row -
+    /// the waterfall's fixed height took all of it and the chat was gone. The waterfall gives way down to a minimum.</summary>
+    protected override void OnLayout(LayoutEventArgs levent)
+    {
+        base.OnLayout(levent);
+        if (_wfHost == null || _panel == null || WindowState == FormWindowState.Minimized) return;
+        int need = LogicalToDeviceUnits(150) - _panel.Height;   // the TX lines + a few chat lines
+        if (need <= 0) return;
+        int h = Math.Max(LogicalToDeviceUnits(120), _wfHost.Height - need);
+        if (h < _wfHost.Height) _wfHost.Height = h;
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        SizeStatus();
     }
 
     protected override void OnShown(EventArgs e)
@@ -283,6 +315,14 @@ internal sealed class MainForm : Form
         var r = _settings.Get("window", "bounds", "").Split(',').Select(v => int.TryParse(v, out var i) ? i : int.MinValue).ToArray();
         if (r.Length == 4 && r.All(v => v != int.MinValue))
         {
+            // the size is in pixels of the DPI it was saved at (Bleeps v1.0.25): after Windows' scaling went from 100 to 200 %
+            // the window came back half as big. Older settings have no DPI and are taken as they are.
+            int savedDpi = _settings.GetInt("window", "dpi", 0);
+            if (savedDpi >= 48 && savedDpi != DeviceDpi)
+            {
+                r[2] = (int)Math.Round(r[2] * (double)DeviceDpi / savedDpi);
+                r[3] = (int)Math.Round(r[3] * (double)DeviceDpi / savedDpi);
+            }
             var b = new Rectangle(r[0], r[1], Math.Max(r[2], MinimumSize.Width), Math.Max(r[3], MinimumSize.Height));
             if (Screen.AllScreens.Any(s => s.WorkingArea.IntersectsWith(b))) { StartPosition = FormStartPosition.Manual; Bounds = b; }
         }
@@ -293,6 +333,7 @@ internal sealed class MainForm : Form
     {
         var b = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
         _settings.Set("window", "bounds", $"{b.X},{b.Y},{b.Width},{b.Height}");
+        _settings.Set("window", "dpi", DeviceDpi);
         _settings.Set("window", "maximized", WindowState == FormWindowState.Maximized);
     }
 
@@ -370,7 +411,7 @@ internal sealed class MainForm : Form
         {
             var list = g.OrderBy(f => f.MHz).ToList();
             var b = new Button { Text = g.Key, Tag = g.Key, AutoSize = false, Size = new Size(LogicalToDeviceUnits(58), LogicalToDeviceUnits(26)),
-                                 FlatStyle = FlatStyle.Flat, Margin = new Padding(2), UseVisualStyleBackColor = false, BackColor = SystemColors.Control };
+                                 FlatStyle = FlatStyle.Flat, Margin = new Padding(LogicalToDeviceUnits(2)), UseVisualStyleBackColor = false, BackColor = SystemColors.Control };
             b.FlatAppearance.BorderColor = Color.Silver;
             b.Click += (_, _) =>
             {
@@ -393,7 +434,7 @@ internal sealed class MainForm : Form
             bool on = (c.Tag as string) == band;
             c.BackColor = on ? Color.FromArgb(255, 200, 60) : SystemColors.Control;
             c.ForeColor = on ? Color.Black : SystemColors.ControlText;   // dark text on the orange, also in dark mode
-            c.Font = new Font(Font, on ? FontStyle.Bold : FontStyle.Regular);
+            if (c.Font.Bold != on) c.Font = new Font(Font, on ? FontStyle.Bold : FontStyle.Regular);
         }
     }
 
@@ -616,8 +657,8 @@ internal sealed class MainForm : Form
                                  AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(10) };
         var t = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Fill };
         var box = new TextBox { Text = suggest, Width = 140, CharacterCasing = CharacterCasing.Upper };
-        var ok = new Button { Text = "Ping", DialogResult = DialogResult.OK, AutoSize = true };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+        var ok = new Button { Text = "Ping", DialogResult = DialogResult.OK, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0) };
+        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0) };
         t.Controls.Add(new Label { Text = "Callsign:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
         t.Controls.Add(box, 1, 0);
         var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill };
@@ -625,6 +666,7 @@ internal sealed class MainForm : Form
         t.Controls.Add(buttons, 0, 1); t.SetColumnSpan(buttons, 2);
         f.Controls.Add(t);
         f.AcceptButton = ok; f.CancelButton = cancel;
+        UITheme.ScaleFromDesign(f);
         UITheme.Apply(f);
         return f.ShowDialog(this) == DialogResult.OK && box.Text.Trim().Length > 0 ? box.Text.Trim() : null;
     }
@@ -835,10 +877,11 @@ internal sealed class MainForm : Form
         Link("https://www.pa5dj.nl");
         Line("\nThe same Bleeps as in ShackAssistant (protocol version 0).\n" + hamlib);
         Line(BleepsEmoji.Credit);
-        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Anchor = AnchorStyles.Right, AutoSize = true };
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Anchor = AnchorStyles.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(75, 0) };
         t.Controls.Add(ok);
         f.AcceptButton = ok; f.CancelButton = ok;
         f.Controls.Add(t);
+        UITheme.ScaleFromDesign(f);
         UITheme.Apply(f);
         f.ShowDialog(this);
     }

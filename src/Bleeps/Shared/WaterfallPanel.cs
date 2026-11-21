@@ -317,6 +317,9 @@ public sealed class WaterfallPanel : Panel
     private float DpiScale        => DeviceDpi / 96f;
     private int   Px(int logical)   => (int)Math.Round(logical * DpiScale);
     private float Pxf(float logical) => logical * DpiScale;
+    /// <summary>Arial at this control's own DPI, in pixels (Bleeps v1.0.25): a font in points is sized for the DPI Windows
+    /// started with, so on a second screen with other scaling the labels did not match the scaled lines beside them.</summary>
+    private Font ArialAtDpi(float pt, FontStyle style = FontStyle.Regular) => new("Arial", pt * DeviceDpi / 72f, style, GraphicsUnit.Pixel);
 
     /// <summary>Room for the Hz scale at the bottom (standing).</summary>
     private int AxisH => Px(22);
@@ -745,7 +748,7 @@ public sealed class WaterfallPanel : Panel
 
         // Fixed markers (SSTV): a dashed line and its label at the edge where the frequency scale is not.
         if (_markers != null)
-            using (var lf = new Font("Arial", 7.5f, FontStyle.Bold))
+            using (var lf = ArialAtDpi(7.5f, FontStyle.Bold))
                 foreach (var (hz, colour, label) in _markers)
                 {
                     using var mp = new Pen(Color.FromArgb(220, colour), Pxf(1.5f)) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
@@ -792,7 +795,7 @@ public sealed class WaterfallPanel : Panel
         }
 
         // The width itself, next to the band — it moved off its own slider, so it has to be readable here.
-        using (var f  = new Font("Arial", 8f))
+        using (var f  = ArialAtDpi(8f))
         using (var br = new SolidBrush(Color.FromArgb(200, 170, 220, 255)))
         {
             string bw = $"{BandwidthHz:0} Hz";
@@ -906,7 +909,7 @@ public sealed class WaterfallPanel : Panel
             else             g.FillRectangle(axisBg, 0, h, w, AxisH);
         }
         using (var tick = new Pen(Color.FromArgb(120, 120, 130)))
-        using (var f = new Font("Arial", 7.5f))
+        using (var f = ArialAtDpi(7.5f))
         using (var br = new SolidBrush(Color.FromArgb(190, 190, 200)))
         {
             // Tick and label steps that suit the scale: a zoomed-in view of 200 Hz needs a label every
