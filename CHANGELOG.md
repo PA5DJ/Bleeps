@@ -1,5 +1,25 @@
 # Bleeps Changelog
 
+## v1.0.23
+
+- **Ping** (PA5DJ: *"a Ping option: it sends a message to a callsign, the other station answers with a short confirmation; a
+  short ID is enough"*, *"also an option whether the app may answer pings"* and *"a blacklist of calls that may not ping you,
+  in a tab of its own with an Add, Remove structure"*).
+  - **Ping…** button (next to Auto) and **Ping CALL** in the chat's right-click menu send `ping <call> <id>`; the pinged
+    station's Bleeps answers by itself with `pong <call> <id> <snr>` (how strong it heard the ping). The status line shows the
+    answer ("answered after 31 s - DL1ABC heard you at -12 dB, you hear DL1ABC at -8 dB") or "no answer" after 2 minutes.
+  - **Settings -> Ping** (a new tab): *Answer pings automatically* (`[ping] auto_reply`, on) and the **blacklist**
+    (`[ping] blacklist`): a list with a call box, **Add** (or Enter) and **Remove** (or Delete). A blacklisted call's ping is
+    shown but never answered.
+  - A text convention (`Ping.cs`), not a protocol change: Bleeps version 0 stays as it is; ShackAssistant shows ping/pong as
+    text. Only a complete message counts; the same ping heard twice is answered once; our own ping is never answered. Sent in
+    lower case: 14.7 s Normal / 8.8 s Fast instead of 16.0 / 9.4 s (lower-case letters have the short varicode words).
+  - README: a section *Ping*, and the convention under *Protocol description*.
+  Tested (scratchpad `ping`): texts, parsing (case, ordinary text is no ping), the answer rules (for us / not for us /
+  answering off / blacklist / heard twice / own echo / a pong is never answered), and ping and pong as real audio through the
+  modem and the decoder with noise, Normal and Fast - 22 of 22. Main window and the Ping tab rendered and checked. Not tried
+  between two stations on the air.
+
 ## v1.0.22
 
 - **Check for updates** (PA5DJ: *"build in check for updates too"*), the same as ShackAssistant's: **Help -> Check for

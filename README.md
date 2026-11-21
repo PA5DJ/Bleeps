@@ -33,6 +33,7 @@ The protocol is open: see [Protocol description](#protocol-description) below, w
    - [Bands and frequency](#bands-and-frequency)
    - [The waterfall](#the-waterfall)
    - [Chatting](#chatting)
+   - [Ping](#ping)
    - [TX drive and levels](#tx-drive-and-levels)
    - [More than one radio (`--rig`)](#more-than-one-radio---rig)
    - [QO-100 and full duplex](#qo-100-and-full-duplex)
@@ -183,6 +184,29 @@ The controls under the waterfall are the ones from WSJT-X:
   many processor cores the decoders may use.
 
 Every chat is saved per day in `Documents\Bleeps\chat\YYYY-MM-DD.txt` (**File -> Open the chat log folder**).
+
+### Ping
+
+A quick "do you hear me?" to one station. Click **Ping…** (next to Auto) and type the call, or right-click a call in the
+chat -> **Ping CALL**. Bleeps sends a short message, and the other station's Bleeps answers **by itself** with how strong
+it heard you:
+
+```
+ping dl1abc 7k          you  -> DL1ABC   (7k = a short ID)
+pong pa5dj 7k -12       DL1ABC -> you    (it heard your ping at -12 dB)
+```
+
+The status line then says *"Ping DL1ABC: answered after 31 s - DL1ABC heard you at -12 dB, you hear DL1ABC at -8 dB"*,
+or *"no answer"* after 2 minutes. Both messages also stand in the chat. A ping takes about 15 s on the air (Normal) or 9 s
+(Fast); most of that is the call header every message has.
+
+**Settings -> Ping**:
+- **Answer pings automatically** - on by default. Off: a ping to you is only shown.
+- **Blacklist** - calls whose pings are never answered. Type a call and click **Add** (or press Enter); select one and click
+  **Remove** (or press Delete).
+
+Only a complete message (checksum right) counts, and the same ping heard twice is answered once. Ping is a convention in the
+text, not a change to the protocol: a program without it simply shows `ping ...` / `pong ...` as text.
 
 ### TX drive and levels
 
@@ -359,6 +383,11 @@ Append `7 · step · 8` zero bits (112 for Normal, 224 for Fast) so everything l
 
 **Bits to tones.** Two coded bits per symbol, the first one first: the value `b0·2 + b1` maps to the tone `0 1 3 2`
 (Gray code).
+
+**Ping (a text convention, not part of the bit layer).** A ping is the text `ping <call> <id>`, the answer
+`pong <call> <id> <snr>`: `<call>` is the station addressed, `<id>` two characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`,
+`<snr>` a whole number of dB with a sign (`-12`, `+5`) - how the ping was heard. Case does not matter (Bleeps sends lower
+case: shorter varicode). Only a complete message (valid CRC-16) counts; a station answers a given `<call> <id>` once.
 
 ### Test vectors
 

@@ -19,6 +19,8 @@ internal sealed class BleepsPanel : UserControl
     public Action<double>? TxHzChanged;
     /// <summary>Bleeps Settings changed something - the window takes it over (threads).</summary>
     public Action? OptionsChanged;
+    /// <summary>Ping this call (from the chat's right-click menu), or null = ask which call (the Ping button).</summary>
+    public Action<string?>? PingRequested;
 
     private readonly AppSettings _settings;
     private readonly ChatView _chat;
@@ -45,6 +47,7 @@ internal sealed class BleepsPanel : UserControl
         _chat = new ChatView(settings) { Dock = DockStyle.Fill };
         _chat.CallClicked = call => { _txt.Text = call + ": " + _txt.Text.TrimStart(); _txt.Focus(); _txt.SelectionStart = _txt.TextLength; };
         _chat.TxNear = hz => SetTxHz(hz + 100);
+        _chat.PingCall = call => PingRequested?.Invoke(call);
         _chat.NewBelow = n => { _btnNew!.Text = $"▼ {n} new"; _btnNew.Visible = n > 0; };
         _chat.RemoveWaiting = i => RemoveQueued?.Invoke(i);
 
@@ -127,17 +130,23 @@ internal sealed class BleepsPanel : UserControl
         line1.Controls.Add(_btnStop, 4, 0);
 
         // the second line holds still: fixed columns, the status text ends in "..." (the lesson of v1.0.688)
-        var line2 = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 8 };
-        for (int i = 0; i < 7; i++) line2.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        // Ping (v1.0.23, Bleeps): a short "do you hear me?" to one call, which answers by itself
+        var btnPing = new Button { Text = "Ping…", AutoSize = true, FlatStyle = FlatStyle.System };
+        btnPing.Click += (_, _) => PingRequested?.Invoke(null);
+        _tips.SetToolTip(btnPing, "Ping a station: a short message to one call; its Bleeps answers by itself with how strong it heard you. You can also right-click a call in the chat.");
+
+        var line2 = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 9 };
+        for (int i = 0; i < 8; i++) line2.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         line2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         line2.Controls.Add(_lblTx, 0, 0);
         line2.Controls.Add(_cboSpeed, 1, 0);
         line2.Controls.Add(_btnFree, 2, 0);
         line2.Controls.Add(_chkAuto, 3, 0);
-        line2.Controls.Add(_lblCount, 4, 0);
-        line2.Controls.Add(_bar, 5, 0);
-        line2.Controls.Add(_btnSettings, 6, 0);
-        line2.Controls.Add(_lblStatus, 7, 0);
+        line2.Controls.Add(btnPing, 4, 0);
+        line2.Controls.Add(_lblCount, 5, 0);
+        line2.Controls.Add(_bar, 6, 0);
+        line2.Controls.Add(_btnSettings, 7, 0);
+        line2.Controls.Add(_lblStatus, 8, 0);
         line2.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
 
         var tx = new Panel { Dock = DockStyle.Bottom, Height = 70 };
@@ -326,6 +335,8 @@ internal sealed class ChatView : Control
     }
 
     public Action<string>? CallClicked;
+    /// <summary>Right-click on a call -> "Ping CALL".</summary>
+    public Action<string>? PingCall;
     public Action<double>? TxNear;
     public Action<int>? NewBelow;
     public Action<int>? RemoveWaiting;
@@ -664,6 +675,7 @@ internal sealed class ChatView : Control
                     sub.DropDownItems.Add($"Colour {i + 1}", bmp, (_, _) => SetColour(en.Call!, k));
                 }
                 m.Items.Add(sub);
+                m.Items.Add($"Ping {en.Call}", null, (_, _) => PingCall?.Invoke(en.Call!));   // v1.0.23 (Bleeps)
                 m.Items.Add($"Copy call {en.Call}", null, (_, _) => Clipboard.SetText(en.Call!));
             }
             m.Items.Add("Copy text", null, (_, _) => { if (en.Text.Length > 0) Clipboard.SetText(Helpers.Audio.Bleeps.BleepsEmoji.Render(en.Text)); });

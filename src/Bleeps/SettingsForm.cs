@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Win32;
 using ShackAssistant.Helpers;
+using ShackAssistant.Helpers.Audio.Bleeps;
 
 namespace Bleeps;
 
@@ -10,6 +11,9 @@ internal sealed class SettingsForm : Form
     private readonly AppSettings _s;
     private readonly TextBox _call = new() { Width = 120, CharacterCasing = CharacterCasing.Upper };
     private readonly ComboBox _theme = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
+    private readonly CheckBox _pingReply = new() { Text = "Answer pings automatically", AutoSize = true, Margin = new Padding(3, 3, 3, 10) };
+    private readonly ListBox _black = new() { Width = 220, Height = 220, Sorted = true, SelectionMode = SelectionMode.MultiExtended, IntegralHeight = false };
+    private readonly TextBox _blackCall = new() { Width = 220, CharacterCasing = CharacterCasing.Upper };
     private readonly CheckBox _update = new() { Text = "Look for a newer version at start", AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly ComboBox _in = Drop(320), _out = Drop(320);
     private readonly ComboBox _model = new() { Width = 320, DropDownStyle = ComboBoxStyle.DropDown, AutoCompleteMode = AutoCompleteMode.SuggestAppend, AutoCompleteSource = AutoCompleteSource.ListItems };
@@ -65,6 +69,7 @@ internal sealed class SettingsForm : Form
         tabs.TabPages.Add(Page("Station", Station()));
         tabs.TabPages.Add(Page("Audio", AudioPage()));
         tabs.TabPages.Add(Page("Radio", RadioPage()));
+        tabs.TabPages.Add(Page("Ping", PingPage()));
         var fp = new TabPage("Frequencies") { Padding = new Padding(8) };
         fp.Controls.Add(FrequencyPage());
         tabs.TabPages.Add(fp);
@@ -73,7 +78,7 @@ internal sealed class SettingsForm : Form
         var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true, MinimumSize = new Size(80, 0) };
         var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(6) };
         buttons.Controls.Add(cancel); buttons.Controls.Add(ok);
-        AcceptButton = ok; CancelButton = cancel;
+        AcceptButton = ok; CancelButton = cancel; _okButton = ok;
         Controls.Add(tabs);
         Controls.Add(buttons);
         ok.Click += (_, _) => Save();
@@ -122,6 +127,48 @@ internal sealed class SettingsForm : Form
                                   + "Only a newer one gets a message; no internet stays quiet. Help -> Check for updates asks at any time.");
         return t;
     }
+
+    /// <summary>Ping (v1.0.23): answer pings or not, and the blacklist - calls whose pings are never answered - as a list with
+    /// Add / Remove (PA5DJ: "the blacklist in a tab of its own, with an Add, Remove structure").</summary>
+    private Control PingPage()
+    {
+        var t = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Top };
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _tips.SetToolTip(_pingReply, "When another station pings your call, Bleeps answers by itself with a short pong (how strong it heard the ping). Off = the ping is only shown.");
+        t.Controls.Add(_pingReply, 0, 0); t.SetColumnSpan(_pingReply, 2);
+        t.Controls.Add(new Label { Text = "Blacklist - calls whose pings are never answered:", AutoSize = true, Margin = new Padding(3, 3, 3, 4) }, 0, 1);
+        t.SetColumnSpan(t.GetControlFromPosition(0, 1)!, 2);
+
+        var add = new Button { Text = "Add", AutoSize = true, MinimumSize = new Size(80, 0) };
+        var remove = new Button { Text = "Remove", AutoSize = true, MinimumSize = new Size(80, 0), Enabled = false };
+        void Add()
+        {
+            foreach (var c in _blackCall.Text.Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var clean = BleepsCode.CleanCall(c, out var why);
+                if (clean == null) { MessageBox.Show(this, $"{c}: the call must be {why}.", "Ping blacklist", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+                if (!_black.Items.Contains(clean)) _black.Items.Add(clean);
+            }
+            _blackCall.Clear(); _blackCall.Focus();
+        }
+        add.Click += (_, _) => Add();
+        _blackCall.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; Add(); } };   // Enter adds, it does not close Settings
+        _blackCall.Enter += (_, _) => AcceptButton = null;
+        _blackCall.Leave += (_, _) => AcceptButton = _okButton;
+        remove.Click += (_, _) => { foreach (var c in _black.SelectedItems.Cast<object>().ToList()) _black.Items.Remove(c); };
+        _black.SelectedIndexChanged += (_, _) => remove.Enabled = _black.SelectedItems.Count > 0;
+        _black.KeyDown += (_, e) => { if (e.KeyCode == Keys.Delete) remove.PerformClick(); };
+        _tips.SetToolTip(_blackCall, "A callsign (or several, separated by spaces) - Add or Enter puts it on the list.");
+        _tips.SetToolTip(_black, "Pings from these calls are shown in the chat but never answered. Select and Remove (or Delete) to take one off.");
+
+        t.Controls.Add(_blackCall, 0, 2); t.Controls.Add(add, 1, 2);
+        t.Controls.Add(_black, 0, 3); t.Controls.Add(remove, 1, 3);
+        remove.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        return t;
+    }
+
+    private Button? _okButton;
 
     private Control AudioPage()
     {
@@ -286,6 +333,9 @@ internal sealed class SettingsForm : Form
     private void FillValues()
     {
         _call.Text = _s.Get("station", "callsign", "");
+        _pingReply.Checked = _s.GetBool("ping", "auto_reply", true);
+        _black.Items.Clear();
+        foreach (var bc in MainForm.PingBlacklist(_s)) _black.Items.Add(bc);
         _update.Checked = _s.GetBool("update", "check_at_start", true);
         _theme.SelectedItem = AppTheme.Choices.FirstOrDefault(c => c.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase)) ?? "System";
         int i = _s.GetInt("audio", "input", 0), o = _s.GetInt("audio", "output", 0);
@@ -310,6 +360,8 @@ internal sealed class SettingsForm : Form
     private void Save()
     {
         _s.Set("station", "callsign", _call.Text.Trim().ToUpperInvariant());
+        _s.Set("ping", "auto_reply", _pingReply.Checked);
+        _s.Set("ping", "blacklist", string.Join(" ", _black.Items.Cast<string>()));
         _s.Set("update", "check_at_start", _update.Checked);
         string theme = _theme.SelectedItem as string ?? "System";
         if (!theme.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase))

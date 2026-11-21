@@ -72,6 +72,11 @@ the csproj no longer has a path to `..\ShackAssistant`, and a fresh clone builds
   (`tools/uitest/Sat9700.cs`, in scratchpad `sat` extended: it really selects on 07 D0/D1, PTT, bus echo, FA when not in
   satellite mode) with the real RigControl + libhamlib over 127.0.0.1: 28 checks, echo off and on. On the real IC-9700:
   both read at once without touching the radio, PA5DJ: "yes, it matches".
+- `Ping.cs` (v1.0.23) - ping as a TEXT convention, no protocol change: `ping <call> <id>` -> `pong <call> <id> <snr>`, sent
+  lower case (shorter varicode), parsed case-insensitive. `Ping.Decide` = the answer rules (pure, tested). `MainForm`:
+  `SendPing` (Ping… button / chat right-click "Ping CALL", `BleepsPanel.PingRequested`), `OnPing` from `Publish` for complete
+  finished messages, `PingTimeouts` (2 min) in `Tick`. Settings tab Ping: `[ping] auto_reply`, `[ping] blacklist` (list +
+  Add/Remove). Pressing Ping in a test instance SENDS audio to the default card - test the logic in scratchpad `ping` instead.
 - `Frequencies.cs` - `FrequencyList` (default = the shared `BleepsFrequencies.All` since v1.0.5) (`frequencies.json` in
   `%APPDATA%\Bleeps`), by default the Bleeps suggestions (R1 band plan, next to FT8/FT4, clear of CW/phone/RTTY; QO-100 as uplink
   2400.060). `Bands` = band table and frequency text ALWAYS with a point.

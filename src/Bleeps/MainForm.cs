@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.22";
+    public const string Version = "v1.0.23";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -87,6 +87,7 @@ internal sealed class MainForm : Form
         _panel.FreeSpotSource = () => _rx?.FreeSpot(400, 2500, _panel.Speed);
         _panel.TxHzChanged = _ => UpdateMarkers();
         _panel.OptionsChanged = () => { if (_rx != null) _rx.Threads = _settings.GetInt("bleeps", "threads", 0); _settings.Save(); };
+        _panel.PingRequested = SendPing;
         _tx.Finished += why =>
         {
             if (IsDisposed || !IsHandleCreated) return;
@@ -444,6 +445,7 @@ internal sealed class MainForm : Form
         _stTx.Text = _tx.IsRunning ? "TX" : "RX";
         _stTx.BackColor = _tx.IsRunning ? Color.Red : SystemColors.Control;
         _stTx.ForeColor = _tx.IsRunning ? Color.White : SystemColors.ControlText;
+        PingTimeouts();
         if (_tx.IsRunning) _panel.SetProgress(_tx.PlayedSeconds, _tx.TotalSeconds);
         if (_tx.IsRunning && !Duplex) return;       // the waterfall holds still while we send
 
@@ -512,6 +514,7 @@ internal sealed class MainForm : Form
         var changed = new List<ChatView.Entry>();
         var echoes = new List<(long Id, bool Finished, bool Complete, double Db)>();
         var active = new List<(double Hz, string? Call)>();
+        var pings = new List<(string From, Ping.Parsed P, double SnrDb)>();
         foreach (var m in rx.Messages)
         {
             if (!m.Shown) continue;
@@ -530,13 +533,18 @@ internal sealed class MainForm : Form
                 Length = TimeSpan.FromSeconds(Math.Max(0, m.Decoder.LastHeard - m.StartSample) / (double)BleepsCode.SampleRate),
             };
             if (sig != st.Sig) changed.Add(e);
-            if (m.Finished && !st.Logged) { ChatLog(e, mine: false); st.Logged = true; }
+            if (m.Finished && !st.Logged)
+            {
+                ChatLog(e, mine: false); st.Logged = true;
+                if (m.Complete && m.Call != null && Ping.Parse(m.Text) is { } pp) pings.Add((m.Call, pp, m.SnrDb));
+            }
             if (!m.Finished) active.Add((e.Hz, m.Call));
             _seen[m] = (st.Id, st.Utc, sig, st.Logged);
         }
         rx.Forget(120);
         foreach (var k in _seen.Keys.Where(k => !rx.Messages.Contains(k)).ToList()) _seen.Remove(k);
         foreach (var k in _echo.Keys.Where(k => !rx.Messages.Contains(k)).ToList()) _echo.Remove(k);
+        if (pings.Count > 0 && !IsDisposed && IsHandleCreated) BeginInvoke(() => { foreach (var (from, p, db) in pings) OnPing(from, p, db); });
         if (changed.Count == 0 && echoes.Count == 0 && active.Count == _active) return;
         _active = active.Count;
         if (IsDisposed || !IsHandleCreated) return;
@@ -559,6 +567,105 @@ internal sealed class MainForm : Form
         _bands = new[] { (txMid - sp.WidthHz / 2, txMid + sp.WidthHz / 2, Color.OrangeRed) };
         _waterfall.Bands = _bands;
         _waterfall.Markers = _marks;
+    }
+
+    // ── ping (v1.0.23): "PING CALL ID" out, "PONG MYCALL ID SNR" back - see Ping.cs ──
+
+    private sealed record PendingPing(string Call, DateTime Utc);
+    private readonly Dictionary<string, PendingPing> _pings = new();                    // by ID
+    private readonly Dictionary<string, DateTime> _answered = new(StringComparer.OrdinalIgnoreCase);   // "CALL ID" we answered
+    private const int PingTimeoutS = 120;
+
+    /// <summary>Ping a call; null = ask which one (the Ping button - the call of the TX line's "CALL:" or the last one).</summary>
+    private void SendPing(string? call)
+    {
+        if (call == null)
+        {
+            string suggest = _settings.Get("ping", "last_call", "");
+            call = AskCall(suggest);
+            if (call == null) return;
+        }
+        var clean = BleepsCode.CleanCall(call, out var why);
+        if (clean == null) { _panel.SetStatus("Ping: the call must be " + why); return; }
+        if (clean.Equals(BleepsCode.CleanCall(MyCall, out _), StringComparison.OrdinalIgnoreCase)) { _panel.SetStatus("Ping: that is your own call"); return; }
+        _settings.Set("ping", "last_call", clean);
+        string id;
+        do id = Ping.NewId(); while (_pings.ContainsKey(id));
+        _pings[id] = new PendingPing(clean, DateTime.UtcNow);
+        Send(Ping.PingText(clean, id));
+        _panel.SetStatus($"Ping {clean} ({id}) queued - waiting for the answer");
+        Log.Info($"Ping {clean} id {id}");
+    }
+
+    private string? AskCall(string suggest)
+    {
+        using var f = new Form { Text = "Ping", FormBorderStyle = FormBorderStyle.FixedDialog, MinimizeBox = false, MaximizeBox = false,
+                                 ShowInTaskbar = false, StartPosition = FormStartPosition.CenterParent, AutoSize = true,
+                                 AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(10) };
+        var t = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Fill };
+        var box = new TextBox { Text = suggest, Width = 140, CharacterCasing = CharacterCasing.Upper };
+        var ok = new Button { Text = "Ping", DialogResult = DialogResult.OK, AutoSize = true };
+        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+        t.Controls.Add(new Label { Text = "Callsign:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+        t.Controls.Add(box, 1, 0);
+        var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill };
+        buttons.Controls.Add(cancel); buttons.Controls.Add(ok);
+        t.Controls.Add(buttons, 0, 1); t.SetColumnSpan(buttons, 2);
+        f.Controls.Add(t);
+        f.AcceptButton = ok; f.CancelButton = cancel;
+        UITheme.Apply(f);
+        return f.ShowDialog(this) == DialogResult.OK && box.Text.Trim().Length > 0 ? box.Text.Trim() : null;
+    }
+
+    /// <summary>A complete ping or pong came in (UI thread).</summary>
+    private void OnPing(string from, Ping.Parsed p, double snrDb)
+    {
+        var me = BleepsCode.CleanCall(MyCall, out _);
+        if (me == null || !p.Call.Equals(me, StringComparison.OrdinalIgnoreCase)) return;   // not for us
+        if (p.Kind == Ping.Kind.Ping)
+        {
+            foreach (var k in _answered.Where(kv => kv.Value < DateTime.UtcNow.AddMinutes(-10)).Select(kv => kv.Key).ToList()) _answered.Remove(k);
+            var answered = new HashSet<string>(_answered.Keys, StringComparer.OrdinalIgnoreCase);
+            switch (Ping.Decide(me, from, p, _settings.GetBool("ping", "auto_reply", true), PingBlacklist(_settings), answered))
+            {
+                case Ping.Reply.Answer:
+                    _answered[from.ToUpperInvariant() + " " + p.Id] = DateTime.UtcNow;
+                    Send(Ping.PongText(from, p.Id, snrDb));
+                    _panel.SetStatus($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering");
+                    Log.Info($"Ping from {from} id {p.Id} at {snrDb:0} dB - answering");
+                    break;
+                case Ping.Reply.Blacklisted:                           // PA5DJ: "calls that may not ping you" - no answer, ever
+                    _panel.SetStatus($"Ping from {from} ignored (blacklist, Settings -> Station)");
+                    Log.Info($"Ping from {from} id {p.Id} ignored: on the blacklist");
+                    break;
+                case Ping.Reply.AnsweringOff:
+                    _panel.SetStatus($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering pings is off (Settings -> Station)");
+                    break;
+            }
+            return;
+        }
+        // a pong: is it the answer to one of ours?
+        if (!_pings.TryGetValue(p.Id, out var pend) || !pend.Call.Equals(from, StringComparison.OrdinalIgnoreCase)) return;
+        _pings.Remove(p.Id);
+        double s = (DateTime.UtcNow - pend.Utc).TotalSeconds;
+        string them = p.SnrDb is int d ? Ping.FormatDb(d) : "?";
+        _panel.SetStatus($"Ping {from}: answered after {s:0} s - {from} heard you at {them}, you hear {from} at {Ping.FormatDb(snrDb)}");
+        Log.Info($"Pong from {from} id {p.Id}: they heard us at {them}, we hear them at {snrDb:0} dB, {s:0} s");
+    }
+
+    /// <summary>The calls whose pings are never answered: <c>[ping] blacklist</c>, separated by spaces, commas or semicolons.</summary>
+    internal static HashSet<string> PingBlacklist(AppSettings s) =>
+        new(s.Get("ping", "blacklist", "").Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+             .Select(c => c.Trim().ToUpperInvariant()), StringComparer.OrdinalIgnoreCase);
+
+    private void PingTimeouts()
+    {
+        if (_pings.Count == 0) return;
+        foreach (var (id, p) in _pings.Where(kv => (DateTime.UtcNow - kv.Value.Utc).TotalSeconds > PingTimeoutS).ToList())
+        {
+            _pings.Remove(id);
+            _panel.SetStatus($"Ping {p.Call} ({id}): no answer within {PingTimeoutS / 60} minutes");
+        }
     }
 
     // ── sending ──
