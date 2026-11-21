@@ -14,7 +14,7 @@ namespace Bleeps;
 /// </summary>
 internal sealed class MainForm : Form
 {
-    public const string Version = "v1.0.26";
+    public const string Version = "v1.0.27";
 
     private readonly AppSettings _settings = new();
     private List<FrequencyEntry> _freqs = FrequencyList.Load();
@@ -244,7 +244,7 @@ internal sealed class MainForm : Form
                 if (!quiet)
                 {
                     _panel.SetStatus("");
-                    MessageBox.Show(this, "Could not reach " + UpdateCheck.Host.Replace("https://", "") + "." + Environment.NewLine + Environment.NewLine + error,
+                    Dialogs.Show(this, "Could not reach " + UpdateCheck.Host.Replace("https://", "") + "." + Environment.NewLine + Environment.NewLine + error,
                                     "Check for updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 return;
@@ -255,7 +255,7 @@ internal sealed class MainForm : Form
                 if (!quiet)
                 {
                     _panel.SetStatus("");
-                    MessageBox.Show(this, UpdateCheck.UpToDateText(Version), "Check for updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Dialogs.Show(this, UpdateCheck.UpToDateText(Version), "Check for updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 return;
             }
@@ -274,7 +274,7 @@ internal sealed class MainForm : Form
                 Verification = new TaskDialogVerificationCheckBox("Do not remind me about " + found.Label, skipped),
                 AllowCancel = true,
             };
-            var answer = TaskDialog.ShowDialog(this, page);
+            var answer = TaskDialog.ShowDialog(this, page, TaskDialogStartupLocation.CenterOwner);   // over Bleeps, not the screen
             _settings.Set("update", "skip_version", page.Verification.Checked ? found.Version : "");
             _settings.Save();
             if (answer == yes) OpenUrl(UpdateCheck.PageUrl);
@@ -299,7 +299,7 @@ internal sealed class MainForm : Form
 
     private void OpenSettings()
     {
-        if (_tx.IsRunning) { MessageBox.Show(this, "Stop sending first.", "Settings"); return; }
+        if (_tx.IsRunning) { Dialogs.Show(this, "Stop sending first.", "Settings"); return; }
         using var f = new SettingsForm(_settings, _freqs);
         if (f.ShowDialog(this) != DialogResult.OK) return;
         _freqs = f.Frequencies;
@@ -672,6 +672,87 @@ internal sealed class MainForm : Form
         return f.ShowDialog(this) == DialogResult.OK && box.Text.Trim().Length > 0 ? box.Text.Trim() : null;
     }
 
+    // ── a ping to us: a countdown before the automatic answer (v1.0.27, PA5DJ: "when a user gets a ping, a popup with a timer
+    // until the automatic answer; within that time the user can cancel") ──
+
+    private readonly Queue<(string From, string Id, double SnrDb, int Delay)> _incoming = new();
+    private bool _promptOpen;
+    /// <summary>What sends a text - <see cref="Send"/>; a test puts its own here so nothing goes on the air.</summary>
+    private Action<string>? _sendOverride;
+
+    private void AnswerPing(string from, string id, double snrDb)
+    {
+        var text = Ping.PongText(from, id, snrDb);
+        if (_sendOverride != null) _sendOverride(text); else Send(text);
+        Log.Info($"Ping from {from} id {id} at {snrDb:0} dB - answering");
+    }
+
+    /// <summary>One countdown window at a time; pings that come in meanwhile get theirs after it (UI thread).</summary>
+    private void PromptPings()
+    {
+        try
+        {
+            while (_incoming.Count > 0 && !IsDisposed)
+            {
+                var (from, id, db, delay) = _incoming.Dequeue();
+                if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+                using var dlg = new PingAnswerDialog(from, id, Ping.FormatDb(db), delay);
+                var answer = dlg.ShowDialog(this);
+                if (answer == DialogResult.Yes)
+                {
+                    AnswerPing(from, id, db);
+                    _panel.SetStatus($"Ping from {from} ({id}) at {Ping.FormatDb(db)} - answered{(dlg.ByTimer ? "" : " (Answer now)")}");
+                }
+                else
+                {
+                    _panel.SetStatus($"Ping from {from} ({id}) - not answered (cancelled)");
+                    Log.Info($"Ping from {from} id {id} - not answered: cancelled by the operator");
+                }
+            }
+        }
+        finally { _promptOpen = false; }
+    }
+
+    /// <summary>"Ping from DL1ABC at -8 dB - answering automatically in 10 s": Answer now / Don't answer. Yes = answer.</summary>
+    private sealed class PingAnswerDialog : Form
+    {
+        private readonly System.Windows.Forms.Timer _tick = new() { Interval = 1000 };
+        private readonly Label _count;
+        private int _left;
+        public bool ByTimer { get; private set; }
+
+        public PingAnswerDialog(string from, string id, string db, int seconds)
+        {
+            _left = seconds;
+            Text = "Bleeps - Ping"; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
+            ShowInTaskbar = false; StartPosition = FormStartPosition.CenterParent; AutoSize = true;
+            AutoSizeMode = AutoSizeMode.GrowAndShrink; Padding = new Padding(14); Font = new Font("Segoe UI", 9);
+            var t = new TableLayoutPanel { AutoSize = true, ColumnCount = 1, Dock = DockStyle.Fill };
+            t.Controls.Add(new Label { Text = $"Ping from {from} ({id}), heard at {db}.", AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), Margin = new Padding(0, 0, 0, 6) });
+            _count = new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 12) };
+            t.Controls.Add(_count);
+            var now = new Button { Text = "Answer now", DialogResult = DialogResult.Yes, AutoSize = true, MinimumSize = new Size(100, 0) };
+            var no = new Button { Text = "Don't answer", DialogResult = DialogResult.No, AutoSize = true, MinimumSize = new Size(100, 0) };
+            var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill, Margin = new Padding(0) };
+            buttons.Controls.Add(no); buttons.Controls.Add(now);
+            t.Controls.Add(buttons);
+            Controls.Add(t);
+            AcceptButton = now; CancelButton = no;                    // Esc or the X = don't answer
+            Update1();
+            _tick.Tick += (_, _) =>
+            {
+                if (--_left <= 0) { _tick.Stop(); ByTimer = true; DialogResult = DialogResult.Yes; return; }
+                Update1();
+            };
+            Shown += (_, _) => _tick.Start();
+            FormClosed += (_, _) => _tick.Dispose();
+            UITheme.Apply(this);
+            UITheme.ScaleFromDesign(this);
+        }
+
+        private void Update1() => _count.Text = $"Bleeps answers automatically in {_left} s - or click Don't answer.";
+    }
+
     /// <summary>A complete ping or pong came in (UI thread).</summary>
     private void OnPing(string from, Ping.Parsed p, double snrDb)
     {
@@ -684,10 +765,19 @@ internal sealed class MainForm : Form
             switch (Ping.Decide(me, from, p, _settings.GetBool("ping", "auto_reply", true), PingBlacklist(_settings), answered))
             {
                 case Ping.Reply.Answer:
-                    _answered[from.ToUpperInvariant() + " " + p.Id] = DateTime.UtcNow;
-                    Send(Ping.PongText(from, p.Id, snrDb));
-                    PingNote($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering");
-                    Log.Info($"Ping from {from} id {p.Id} at {snrDb:0} dB - answering");
+                    _answered[from.ToUpperInvariant() + " " + p.Id] = DateTime.UtcNow;   // one prompt per ping, also if heard twice
+                    int delay = Math.Clamp(_settings.GetInt("ping", "answer_delay", 10), 0, 120);
+                    if (delay == 0)
+                    {
+                        AnswerPing(from, p.Id, snrDb);
+                        PingNote($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering");
+                    }
+                    else
+                    {
+                        _incoming.Enqueue((from, p.Id, snrDb, delay));
+                        _panel.SetStatus($"Ping from {from} ({p.Id}) at {Ping.FormatDb(snrDb)} - answering in {delay} s unless you cancel");
+                        if (!_promptOpen) { _promptOpen = true; BeginInvoke(PromptPings); }
+                    }
                     break;
                 case Ping.Reply.Blacklisted:                           // PA5DJ: "calls that may not ping you" - no answer, ever
                     PingNote($"Ping from {from} ignored (blacklist, Settings -> Ping)");
@@ -738,7 +828,7 @@ internal sealed class MainForm : Form
             while (true)
             {
                 if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
-                MessageBox.Show(this, text, "Bleeps - Ping", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Dialogs.Show(this, text, "Bleeps - Ping", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 if (_notePending == null || IsDisposed) break;
                 text = _notePending; _notePending = null;
             }
@@ -801,7 +891,7 @@ internal sealed class MainForm : Form
         if (cfg.UsePtt && (_rig == null || !_rig.IsOpen))
         {
             _out.Clear(); _panel.SetQueued(Array.Empty<string>());
-            MessageBox.Show(this, $"PTT is set to {cfg.Ptt}, but the radio/port is not open: {_rigState.Status}\n\nCheck File -> Settings -> Radio.",
+            Dialogs.Show(this, $"PTT is set to {cfg.Ptt}, but the radio/port is not open: {_rigState.Status}\n\nCheck File -> Settings -> Radio.",
                             "Bleeps - PTT", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -875,13 +965,13 @@ internal sealed class MainForm : Form
     private void OpenFolder(string dir)
     {
         try { Directory.CreateDirectory(dir); System.Diagnostics.Process.Start("explorer.exe", "\"" + dir + "\""); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bleeps"); }
+        catch (Exception ex) { Dialogs.Show(this, ex.Message, "Bleeps"); }
     }
 
     private void OpenUrl(string url)
     {
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bleeps"); }
+        catch (Exception ex) { Dialogs.Show(this, ex.Message, "Bleeps"); }
     }
 
     private void About()

@@ -11,7 +11,8 @@ internal sealed class SettingsForm : Form
     private readonly AppSettings _s;
     private readonly TextBox _call = new() { Width = 120, CharacterCasing = CharacterCasing.Upper };
     private readonly ComboBox _theme = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
-    private readonly CheckBox _pingReply = new() { Text = "Answer pings automatically", AutoSize = true, Margin = new Padding(3, 3, 3, 10) };
+    private readonly CheckBox _pingReply = new() { Text = "Answer pings automatically", AutoSize = true, Margin = new Padding(3, 3, 3, 6) };
+    private readonly NumericUpDown _pingDelay = new() { Minimum = 0, Maximum = 120, Width = 60 };
     private readonly ListBox _black = new() { Width = 220, Height = 220, Sorted = true, SelectionMode = SelectionMode.MultiExtended, IntegralHeight = false };
     private readonly TextBox _blackCall = new() { Width = 220, CharacterCasing = CharacterCasing.Upper };
     private readonly CheckBox _update = new() { Text = "Look for a newer version at start", AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
@@ -137,8 +138,16 @@ internal sealed class SettingsForm : Form
         t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _tips.SetToolTip(_pingReply, "When another station pings your call, Bleeps answers by itself with a short pong (how strong it heard the ping). Off = the ping is only shown.");
         t.Controls.Add(_pingReply, 0, 0); t.SetColumnSpan(_pingReply, 2);
-        t.Controls.Add(new Label { Text = "Blacklist - calls whose pings are never answered:", AutoSize = true, Margin = new Padding(3, 3, 3, 4) }, 0, 1);
-        t.SetColumnSpan(t.GetControlFromPosition(0, 1)!, 2);
+        // the countdown before the automatic answer (v1.0.27): a window shows it, the operator can cancel within that time
+        var delayRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 12) };
+        delayRow.Controls.Add(new Label { Text = "Wait before answering:", AutoSize = true, Margin = new Padding(3, 6, 6, 3) });
+        delayRow.Controls.Add(_pingDelay);
+        delayRow.Controls.Add(new Label { Text = "s  (0 = answer at once)", AutoSize = true, Margin = new Padding(4, 6, 3, 3) });
+        _tips.SetToolTip(_pingDelay, "A ping to you opens a window that counts down; within this time you can click Don't answer. At 0 the answer goes out.");
+        t.Controls.Add(delayRow, 0, 1); t.SetColumnSpan(delayRow, 2);
+        _pingReply.CheckedChanged += (_, _) => delayRow.Enabled = _pingReply.Checked;
+        t.Controls.Add(new Label { Text = "Blacklist - calls whose pings are never answered:", AutoSize = true, Margin = new Padding(3, 3, 3, 4) }, 0, 2);
+        t.SetColumnSpan(t.GetControlFromPosition(0, 2)!, 2);
 
         var add = new Button { Text = "Add", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0) };
         var remove = new Button { Text = "Remove", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 0), Enabled = false };
@@ -147,7 +156,7 @@ internal sealed class SettingsForm : Form
             foreach (var c in _blackCall.Text.Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var clean = BleepsCode.CleanCall(c, out var why);
-                if (clean == null) { MessageBox.Show(this, $"{c}: the call must be {why}.", "Ping blacklist", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+                if (clean == null) { Dialogs.Show(this, $"{c}: the call must be {why}.", "Ping blacklist", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
                 if (!_black.Items.Contains(clean)) _black.Items.Add(clean);
             }
             _blackCall.Clear(); _blackCall.Focus();
@@ -160,10 +169,10 @@ internal sealed class SettingsForm : Form
         _black.SelectedIndexChanged += (_, _) => remove.Enabled = _black.SelectedItems.Count > 0;
         _black.KeyDown += (_, e) => { if (e.KeyCode == Keys.Delete) remove.PerformClick(); };
         _tips.SetToolTip(_blackCall, "A callsign (or several, separated by spaces) - Add or Enter puts it on the list.");
-        _tips.SetToolTip(_black, "Pings from these calls are shown in the chat but never answered. Select and Remove (or Delete) to take one off.");
+        _tips.SetToolTip(_black, "Pings from these calls are reported but never answered. Select and Remove (or Delete) to take one off.");
 
-        t.Controls.Add(_blackCall, 0, 2); t.Controls.Add(add, 1, 2);
-        t.Controls.Add(_black, 0, 3); t.Controls.Add(remove, 1, 3);
+        t.Controls.Add(_blackCall, 0, 3); t.Controls.Add(add, 1, 3);
+        t.Controls.Add(_black, 0, 4); t.Controls.Add(remove, 1, 4);
         remove.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         return t;
     }
@@ -258,7 +267,7 @@ internal sealed class SettingsForm : Form
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Reset to the defaults", null, (_, _) =>
         {
-            if (MessageBox.Show(this, "Replace the whole list with the default Bleeps frequencies?", "Frequencies", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (Dialogs.Show(this, "Replace the whole list with the default Bleeps frequencies?", "Frequencies", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 FillGrid(FrequencyList.Defaults());
         });
         _grid.ContextMenuStrip = menu;
@@ -281,7 +290,7 @@ internal sealed class SettingsForm : Form
     {
         string? text = Ask("Insert a frequency", "Frequency in MHz (e.g. 14.071):");
         if (text == null) return;
-        if (!Bands.TryParseMHz(text, out var mhz)) { MessageBox.Show(this, "That is not a frequency.", "Frequencies"); return; }
+        if (!Bands.TryParseMHz(text, out var mhz)) { Dialogs.Show(this, "That is not a frequency.", "Frequencies"); return; }
         var list = GridEntries();
         list.Add(new FrequencyEntry { MHz = mhz });
         FillGrid(FrequencyList.Sorted(list));
@@ -336,6 +345,7 @@ internal sealed class SettingsForm : Form
     {
         _call.Text = _s.Get("station", "callsign", "");
         _pingReply.Checked = _s.GetBool("ping", "auto_reply", true);
+        _pingDelay.Value = Math.Clamp(_s.GetInt("ping", "answer_delay", 10), 0, 120);
         _black.Items.Clear();
         foreach (var bc in MainForm.PingBlacklist(_s)) _black.Items.Add(bc);
         _update.Checked = _s.GetBool("update", "check_at_start", true);
@@ -363,13 +373,14 @@ internal sealed class SettingsForm : Form
     {
         _s.Set("station", "callsign", _call.Text.Trim().ToUpperInvariant());
         _s.Set("ping", "auto_reply", _pingReply.Checked);
+        _s.Set("ping", "answer_delay", (int)_pingDelay.Value);
         _s.Set("ping", "blacklist", string.Join(" ", _black.Items.Cast<string>()));
         _s.Set("update", "check_at_start", _update.Checked);
         string theme = _theme.SelectedItem as string ?? "System";
         if (!theme.Equals(_s.Get("display", "theme", "System"), StringComparison.OrdinalIgnoreCase))
         {
             _s.Set("display", "theme", theme);
-            MessageBox.Show(this, $"The theme ({theme}) takes effect when Bleeps starts again.", "Bleeps", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Dialogs.Show(this, $"The theme ({theme}) takes effect when Bleeps starts again.", "Bleeps", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         _s.Set("audio", "input", Math.Max(0, _in.SelectedIndex));
         _s.Set("audio", "output", Math.Max(0, _out.SelectedIndex));

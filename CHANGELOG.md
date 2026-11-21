@@ -1,5 +1,22 @@
 # Bleeps Changelog
 
+## v1.0.27
+
+- **A countdown before a ping is answered** (PA5DJ: *"when a user gets a ping, a popup with a timer until the automatic
+  answer; within that time the user can cancel"*). A ping to you opens "Bleeps - Ping": who, at what level, and "Bleeps
+  answers automatically in 10 s". **Don't answer** (or Esc, or the X) sends nothing, **Answer now** answers at once, otherwise
+  the answer goes out when the time is up. Pings that come in meanwhile each get their window after it; the same ping heard
+  twice gets one. Settings -> Ping: **Wait before answering** (`[ping] answer_delay`, 10 s; 0 = answer at once without the
+  window).
+- **Windows open over the middle of the Bleeps window** (PA5DJ: *"make sure windows are shown above the middle of the app
+  window"*). Windows puts a standard message box in the middle of the SCREEN; `Dialogs.Show` (a CBT hook on the UI thread)
+  moves it over the owner window, kept on its screen. Used for every message box with an owner; the update window asks
+  for `CenterOwner`; our own windows already use `CenterParent`.
+  Tested with a scripted operator (nothing on the air: the answer is caught): the timer answers after 3 s and not before,
+  Don't answer sends nothing, Answer now sends at once, two pings are answered one after the other, a ping heard twice once,
+  delay 0 at once - 8 of 8; and with Bleeps at the top left of the screen both the OK box and the countdown opened centred on
+  Bleeps (490,364 against Bleeps' 490,365; the screen's middle is 1280,696).
+
 ## v1.0.26
 
 - **Ping events in a window you click OK on** (PA5DJ: *"a popup with the status text next to Settings"* - *"no, really a

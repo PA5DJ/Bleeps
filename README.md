@@ -197,13 +197,18 @@ pong pa5dj 7k -12       DL1ABC -> you    (it heard your ping at -12 dB)
 ```
 
 A window then tells what happened - *"Ping DL1ABC: answered after 31 s - DL1ABC heard you at -12 dB, you hear DL1ABC at
--8 dB"*, or *"no answer"* after 2 minutes - and stays until you click **OK**; the same text stands in the status line. A ping
-to you (answered, ignored or answering off) gets such a window too. Bleeps keeps receiving and answering while one is open;
-what comes in meanwhile is shown after OK. Ping and pong messages are kept out of the chat window (the chat log file still
-has them). A ping takes about 15 s on the air (Normal) or 9 s (Fast); most of that is the call header every message has.
+-8 dB"*, or *"no answer"* after 2 minutes - and stays until you click **OK**; the same text stands in the status line.
+
+**A ping to you** opens a window that counts down: *"Ping from DL1ABC (7K), heard at -8 dB. Bleeps answers automatically
+in 10 s"*. Click **Don't answer** (or Esc) to send nothing, **Answer now** to answer at once, or let the time run out. Pings
+that come in meanwhile get their own window after it. A ping that is ignored (blacklist) or not answered (answering off)
+gets a window with OK. Bleeps keeps receiving while a window is open, and every window opens over the middle of the Bleeps
+window. Ping and pong messages are kept out of the chat window (the chat log file still has them). A ping takes about 15 s
+on the air (Normal) or 9 s (Fast); most of that is the call header every message has.
 
 **Settings -> Ping**:
 - **Answer pings automatically** - on by default. Off: a ping to you is only shown.
+- **Wait before answering** - the countdown in seconds (10; 0 = answer at once, without the window).
 - **Blacklist** - calls whose pings are never answered. Type a call and click **Add** (or press Enter); select one and click
   **Remove** (or press Delete).
 
